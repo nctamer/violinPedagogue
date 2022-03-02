@@ -103,7 +103,7 @@ def train_dataset(*names, batch_size=32, loop=True, augment=True) -> Dataset:
         raise ValueError("dataset names required")
 
     # LAST ONE FOR THE PARENT FOLDER
-    paths = names
+    paths = [j for i in names for j in i]  # join separate train paths (list of lists -> single list)
 
     datasets = [Dataset.read.tfrecord(path, compression='gzip') for path in paths]
     datasets = [dataset.select_tuple('audio', 'pitch') for dataset in datasets]
@@ -130,23 +130,21 @@ def validation_dataset(*names, seed=None, take=None) -> Dataset:
     if len(names) == 0:
         raise ValueError("dataset names required")
 
-    files = names
-
     all_datasets = []
 
+    for files in names:
+        if seed:
+            files = Random(seed).sample(files, len(files))
 
-    if seed:
-        files = Random(seed).sample(files, len(files))
+        datasets = [Dataset.read.tfrecord(file, compression='gzip') for file in files]
+        datasets = [dataset.select_tuple('audio', 'pitch') for dataset in datasets]
 
-    datasets = [Dataset.read.tfrecord(file, compression='gzip') for file in files]
-    datasets = [dataset.select_tuple('audio', 'pitch') for dataset in datasets]
+        if seed:
+            datasets = [dataset.shuffle(seed=seed) for dataset in datasets]
+        if take:
+            datasets = [dataset.take(take) for dataset in datasets]
 
-    if seed:
-        datasets = [dataset.shuffle(seed=seed) for dataset in datasets]
-    if take:
-        datasets = [dataset.take(take) for dataset in datasets]
-
-    all_datasets.append(Dataset.concat(datasets))
+        all_datasets.append(Dataset.concat(datasets))
 
     result = Dataset.roundrobin(all_datasets)
     result = result.starmap(normalize)

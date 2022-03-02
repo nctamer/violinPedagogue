@@ -7,7 +7,7 @@ import os
 import itertools
 import numpy as np
 
-validation_set_names = ['medleydb']
+validation_set_names = ['L1', 'L6']
 
 
 def prepare_datasets(parent_folder, grades) -> (Dataset, (np.ndarray, np.ndarray)):
@@ -18,6 +18,7 @@ def prepare_datasets(parent_folder, grades) -> (Dataset, (np.ndarray, np.ndarray
     possible_validation_players = p[p_count == 1]
     train, validation = [], []
     for grade in grades:
+        train_per_grade, validation_per_grade = [], []
         paths = os.listdir(os.path.join(parent_folder, grade))
         grade_players = [_.split('_')[1] for _ in paths]
         try:
@@ -29,17 +30,22 @@ def prepare_datasets(parent_folder, grades) -> (Dataset, (np.ndarray, np.ndarray
             validation_player = 'NONE'
         for path in paths:
             if validation_player in path:
-                validation.append(os.path.join(parent_folder, grade, path))
+                validation_per_grade.append(os.path.join(parent_folder, grade, path))
             else:
-                train.append(os.path.join(parent_folder, grade, path))
-
+                train_per_grade.append(os.path.join(parent_folder, grade, path))
+        train.append(train_per_grade)
+        validation.append(validation_per_grade)
 
     train = train_dataset(*train, batch_size=options['batch_size'], augment=options['augment'])
     print("Train dataset:", train, file=sys.stderr)
 
-    validation = validation_dataset(*validation, seed=42, take=100).take(options['validation_take']).collect(verbose=True)
+    v = []
+    for name in validation:
+        print("Collecting validation set {}:".format(name), file=sys.stderr)
+        dataset = validation_dataset(name, seed=42, take=100).take(options['validation_take']).collect(verbose=True)
+        v.append(dataset)
 
-    return train, validation
+    return train, v
 
 
 class PitchAccuracyCallback(keras.callbacks.Callback):
@@ -85,11 +91,14 @@ class PitchAccuracyCallback(keras.callbacks.Callback):
 
 
 def main():
-    names = ["L1"]
+    names = ["L1", "L6"]
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire", "tfrecord")
     train_set, val_sets = prepare_datasets(dataset_folder, names)
     val_data = Dataset.concat([Dataset(*val_set) for val_set in val_sets]).collect()
 
+    options["load_model_weights"] = "models/original.h5"
+    options["save_model_weights"] = "L1"
+    options["steps_per_epoch"] = 3
     model: keras.Model = build_model()
     model.summary()
 

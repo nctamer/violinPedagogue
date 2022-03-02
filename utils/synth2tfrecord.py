@@ -1,28 +1,31 @@
 import os
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import librosa
 from tqdm import tqdm
 from joblib import Parallel, delayed
+import numpy as np
 
-options = tf.io.TFRecordOptions(tf.compat.v1.python_io.TFRecordCompressionType.GZIP)
 
+
+options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
 
 def process_file(stem, path_folder_synth, path_folder_tfrecord):
-    labels = open(os.path.join(path_folder_synth, stem + '.csv')).read().split("\n")
-    labels = [line.split(",") for line in labels]
-    labels = [[float(n) for n in row] for row in labels if len(row) == 2]
+    labels = np.loadtxt(os.path.join(path_folder_synth, stem + '.csv'), delimiter=',')
+
+    nonzero = labels[:, 1] > 0
+    labels = labels[nonzero, :]
 
     sr = 16000
     audio = librosa.load(os.path.join(path_folder_synth, stem + '.wav'), sr=sr)[0]
 
     output_path = os.path.join(path_folder_tfrecord, stem + '.tfrecord')
-    writer = tf.io.TFRecordWriter(output_path, options=options)
+    writer = tf.python_io.TFRecordWriter(output_path, options=options)
 
     for row in tqdm(labels):
         pitch = row[1]
-        if pitch > 0:
-            center = int(row[0] * sr)
-            segment = audio[center - 512:center + 512]
+        center = int(row[0] * sr)
+        segment = audio[center - 512:center + 512]
+        if len(segment):
             example = tf.train.Example(features=tf.train.Features(feature={
                 "audio": tf.train.Feature(float_list=tf.train.FloatList(value=segment)),
                 "pitch": tf.train.Feature(float_list=tf.train.FloatList(value=[pitch]))
@@ -47,13 +50,15 @@ def process_folder(path_folder_synth, path_folder_tfrecord, n_jobs=4):
         stem, path_folder_synth, path_folder_tfrecord) for stem in stems)
 
 
-if __name__ == '__main__':
-    names = ["L1"]
-    dataset_folder = "/homedtic/ntamer/violindataset/graded_repertoire"
+names = ["L6"]
+dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
 
-    for name in names:
-        print("started processing the folder ", name)
+# '/home/nazif/violindataset/graded_repertoire/tfrecord/L1/S1_BochanKang_015_15. Minuet 3.RESYN.tfrecord'
+# PROBLEM!!
 
-        process_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
-                       path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord", name),
-                       n_jobs=7)
+for name in names:
+    print("started processing the folder ", name)
+
+    process_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
+                   path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord", name),
+                   n_jobs=7)
