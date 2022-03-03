@@ -18,6 +18,7 @@ from joblib import Parallel, delayed
 HOP_SIZE = 128
 SAMPLING_RATE = 44100
 
+
 def silence_segments_one_run(confidences, confidence_threshold, segment_len_th):
     conf_bool = np.array(confidences>confidence_threshold).reshape(-1)
     absdiff = np.abs(np.diff(np.concatenate(([False], conf_bool, [False]))))
@@ -198,5 +199,5 @@ if __name__ == '__main__':
         process_folder(path_folder_audio=os.path.join(dataset_folder, name), 
                        path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", "crepe_original", name),
                        path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
-                       n_jobs=7)
+                       n_jobs=16)
 
