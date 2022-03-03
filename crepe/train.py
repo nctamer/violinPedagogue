@@ -99,7 +99,7 @@ def main():
 
     options["load_model_weights"] = "models/original.h5"
     options["save_model_weights"] = "1stRound"
-    # options["steps_per_epoch"] = 3
+    options["steps_per_epoch"] = 5
     model: keras.Model = build_model()
     model.summary()
 
