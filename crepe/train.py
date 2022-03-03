@@ -16,6 +16,7 @@ def prepare_datasets(parent_folder, grades) -> (Dataset, (np.ndarray, np.ndarray
     p, p_count = zip(*[(pl, player.count(pl)) for pl in sorted(list(set(player)))])
     p, p_count = np.array(p), np.array(p_count)
     possible_validation_players = p[p_count == 1]
+    possible_validation_players = ["BochanKang"]
     train, validation = [], []
     for grade in grades:
         train_per_grade, validation_per_grade = [], []
@@ -97,8 +98,8 @@ def main():
     val_data = Dataset.concat([Dataset(*val_set) for val_set in val_sets]).collect()
 
     options["load_model_weights"] = "models/original.h5"
-    options["save_model_weights"] = "L1"
-    options["steps_per_epoch"] = 3
+    options["save_model_weights"] = "1stRound"
+    # options["steps_per_epoch"] = 3
     model: keras.Model = build_model()
     model.summary()
 
