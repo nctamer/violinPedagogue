@@ -7,7 +7,7 @@ import os
 import itertools
 import numpy as np
 
-validation_set_names = ['L1', 'L6']
+validation_set_names = ["L1", "L2", "L3", "L4", "L5", "L6"]
 
 
 def prepare_datasets(parent_folder, grades) -> (Dataset, (np.ndarray, np.ndarray)):
@@ -56,7 +56,7 @@ class PitchAccuracyCallback(keras.callbacks.Callback):
         self.local_average = local_average
         self.to_cents = local_average and to_local_average_cents or to_weighted_average_cents
         self.prefix = local_average and 'local-average-' or 'default-'
-        for filename in ["mae.tsv", "rpa.tsv", "rca.tsv"]:
+        for filename in ["mae.tsv", "rpa.tsv", "rca.tsv", "rpa5.tsv", "rca5.tsv"]:
             with open(log_path(self.prefix + filename), "w") as f:
                 f.write('\t'.join(validation_set_names) + '\n')
 
@@ -67,6 +67,8 @@ class PitchAccuracyCallback(keras.callbacks.Callback):
         MAEs = []
         RPAs = []
         RCAs = []
+        RPA5 = []
+        RCA5 = []
 
         print("Epoch {}, validation accuracies (local_average = {})".format(epoch + 1, self.local_average), file=sys.stderr)
         for audio, true_cents in self.val_sets:
@@ -74,12 +76,15 @@ class PitchAccuracyCallback(keras.callbacks.Callback):
             predicted_cents = self.to_cents(predicted)
             diff = np.abs(true_cents - predicted_cents)
             mae = np.mean(diff[np.isfinite(diff)])
-            rpa, rca = accuracies(true_cents, predicted_cents)
+            rpa, rca = accuracies(true_cents, predicted_cents, cent_tolerance=10)
+            rpa5, rca5 = accuracies(true_cents, predicted_cents, cent_tolerance=5)
             nans = np.mean(np.isnan(diff))
             print("{}: MAE = {}, RPA = {}, RCA = {}, nans = {}".format(names.pop(0), mae, rpa, rca, nans), file=sys.stderr)
             MAEs.append(mae)
             RPAs.append(rpa)
             RCAs.append(rca)
+            RPA5.append(rpa5)
+            RCA5.append(rca5)
 
         with open(log_path(self.prefix + "mae.tsv"), "a") as f:
             f.write('\t'.join(['%.6f' % mae for mae in MAEs]) + '\n')
@@ -87,19 +92,23 @@ class PitchAccuracyCallback(keras.callbacks.Callback):
             f.write('\t'.join(['%.6f' % rpa for rpa in RPAs]) + '\n')
         with open(log_path(self.prefix + "rca.tsv"), "a") as f:
             f.write('\t'.join(['%.6f' % rca for rca in RCAs]) + '\n')
+        with open(log_path(self.prefix + "rpa5.tsv"), "a") as f:
+            f.write('\t'.join(['%.6f' % rpa for rpa in RPA5]) + '\n')
+        with open(log_path(self.prefix + "rca5.tsv"), "a") as f:
+            f.write('\t'.join(['%.6f' % rca for rca in RCA5]) + '\n')
 
         print(file=sys.stderr)
 
 
 def main():
-    names = ["L1", "L6"]
+    names = ["L1", "L2", "L3", "L4", "L5", "L6"]
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire", "tfrecord")
     train_set, val_sets = prepare_datasets(dataset_folder, names)
     val_data = Dataset.concat([Dataset(*val_set) for val_set in val_sets]).collect()
 
     options["load_model_weights"] = "models/original.h5"
     options["save_model_weights"] = "1stRound"
-    options["steps_per_epoch"] = 5
+    options["steps_per_epoch"] = 500
     model: keras.Model = build_model()
     model.summary()
 

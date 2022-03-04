@@ -191,7 +191,7 @@ def process_folder(path_folder_audio, path_folder_f0, path_folder_synth, n_jobs=
 
 
 if __name__ == '__main__':
-    names = ["L2", "L3", "L4", "L5"]
+    names = ["L1", "L2", "L3", "L4", "L5", "L6"]
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
 
     for name in names:

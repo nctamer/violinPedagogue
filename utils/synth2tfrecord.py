@@ -50,7 +50,7 @@ def process_folder(path_folder_synth, path_folder_tfrecord, n_jobs=4):
         stem, path_folder_synth, path_folder_tfrecord) for stem in stems)
 
 
-names = ["L6"]
+names = ["L1", "L2", "L3", "L4", "L5", "L6"]
 dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
 
 # '/home/nazif/violindataset/graded_repertoire/tfrecord/L1/S1_BochanKang_015_15. Minuet 3.RESYN.tfrecord'
@@ -61,4 +61,4 @@ for name in names:
 
     process_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                    path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord", name),
-                   n_jobs=7)
+                   n_jobs=8)
