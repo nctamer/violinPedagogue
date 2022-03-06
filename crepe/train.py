@@ -107,7 +107,7 @@ def main():
     val_data = Dataset.concat([Dataset(*val_set) for val_set in val_sets]).collect()
 
     options["load_model_weights"] = "models/original.h5"
-    options["save_model_weights"] = "1stRound"
+    options["save_model_weights"] = "firstRun.h5"
     options["steps_per_epoch"] = 500
     model: keras.Model = build_model()
     model.summary()
