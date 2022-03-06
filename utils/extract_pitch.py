@@ -1,8 +1,14 @@
-import marl_crepe as mycrepe
 import librosa
 import os
 import glob
 import pandas as pd
+try:
+    import marl_crepe as mycrepe
+except ModuleNotFoundError:
+    import sys
+    # Add the ptdraft folder path to the sys.path list
+    sys.path.append('..')
+    import marl_crepe as mycrepe
 
 GRADES = ["L1", "L2", "L3", "L4", "L5", "L6"]
 
