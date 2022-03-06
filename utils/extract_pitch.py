@@ -25,7 +25,7 @@ def extract_pitch_with_model(model_name):
     for grade in GRADES:
         if not os.path.exists(os.path.join(OUT_FOLDER, grade)):
             # Create a new directory because it does not exist
-            os.makedirs(OUT_FOLDER)
+            os.makedirs(os.path.join(OUT_FOLDER, grade))
         new_audio_files = sorted(glob.glob(os.path.join(FOLDER, grade, "*" + AUDIO_FORMAT)))
         audio_files.extend(new_audio_files)
         output_f0_files.extend(
