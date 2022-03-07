@@ -10,10 +10,14 @@ from pathlib import Path
 if os.path.join(Path().absolute(), 'sms_tools', 'models') not in sys.path:
     sys.path.append(os.path.join(Path().absolute(), 'sms_tools', 'models'))
 from sms_tools.models import hprModel as HPR
+from sms_tools.models.harmonicModel import harmonicModelAnal
+from sms_tools.models.utilFunctions import sineSubtraction
+from sms_tools.models.stochasticModel import stochasticModelAnal
 from sms_tools.models import sineModel as SM
 from sms_tools.models.utilFunctions import refinef0Twm
 import soundfile as sf
 from joblib import Parallel, delayed
+from sklearn.ensemble import IsolationForest
 
 HOP_SIZE = 128
 SAMPLING_RATE = 44100
@@ -105,7 +109,43 @@ def hpr_anal(audio, f0, hop_size=HOP_SIZE, sr=SAMPLING_RATE):
     return hfreq, hmag, hphase, xr
 
 
-def refine_harmonics_twm(hfreq, hmag, f0, f0et=10.0, f0_refinement_range_cents=10):
+def anal(audio, f0, stochastic=False, hop_size=HOP_SIZE, sr=SAMPLING_RATE):
+    # Get harmonic content from audio using extracted pitch as reference
+    # Get freq limits to compute minf0
+    tmp_est_freq = [x for x in f0 if x > 20]
+    if len(tmp_est_freq) > 0:
+        minf0 = min(tmp_est_freq) - 20
+    else:
+        minf0 = 0
+
+    w = get_window('hanning', 1001, fftbins=True)
+    f0et = 10.0
+    f0_refinement_range_cents = 10
+    hfreq, hmag, hphase = harmonicModelAnal(
+        x=audio,
+        f0=f0,
+        fs=sr,
+        w=w,
+        minf0=minf0,
+        maxf0=max(f0) + 50,
+        H=hop_size,
+        N=2048,
+        f0et=f0et,
+        t=-90,
+        nH=30,
+        harmDevSlope=0.001,
+        minSineDur=0.001
+    )
+    if ~stochastic:
+        return hfreq, hmag, hphase
+    else:
+        # subtract sinusoids from original sound
+        xr = sineSubtraction(x=audio, N=512, H=hop_size, sfreq=hfreq, smag=hmag, sphase=hphase, fs=sr)
+        # perform stochastic analysis of residual
+        stocEnv = stochasticModelAnal(xr, H=hop_size, N=hop_size*2, stocf=0.5)
+        return hfreq, hmag, hphase, stocEnv
+
+def refine_harmonics_twm(hfreq, hmag, hphases, f0, f0et=5.0, f0_refinement_range_cents=10):
     """
     Refine the f0 estimate with the help of two-way mismatch algorithm and change the harmonic components
     to the exact multiples of the refined f0 estimate
@@ -136,7 +176,20 @@ def refine_harmonics_twm(hfreq, hmag, f0, f0et=10.0, f0_refinement_range_cents=1
     f0[~voiced] = 0
     hfreq[~voiced] = 0
     hmag[~voiced] = 0
-    return hfreq, hmag, f0
+    hphases[~voiced] = 0
+    return hfreq, hmag, hphases, f0
+
+
+def supress_timbre_anomalies(hfreq, hmag, hphase, f0):
+    detector = IsolationForest().fit(hmag[f0 > 0, :12])
+    voiced = detector.predict(hmag[:, :12])
+    voiced = voiced > 0
+    f0[~voiced] = 0
+    hfreq[~voiced] = 0
+    hmag[~voiced] = 0
+    hphase[~voiced] = 0
+    return hfreq, hmag, hphase, f0
+
 
 
 def apply_pitch_filter(pitch_track_csv, min_chunk_size=20, median=True, confidence_threshold=0.8):
@@ -166,11 +219,13 @@ def apply_pitch_filter(pitch_track_csv, min_chunk_size=20, median=True, confiden
 def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth):
     audio = librosa.load(os.path.join(path_folder_audio, filename), sr=SAMPLING_RATE, mono=True)[0]
     f0s = pd.read_csv(os.path.join(path_folder_f0, filename[:-3] + "f0.csv"))
-    f0s = silence_unvoiced_segments(f0s, confidence_threshold=0.2, min_voiced_segment_ms=100)
+    f0s = silence_unvoiced_segments(f0s, confidence_threshold=0.5, min_voiced_segment_ms=100)
     f0s = apply_pitch_filter(f0s, min_chunk_size=9, median=True, confidence_threshold=0.75)
     f0s, time = interpolate_f0_to_sr(f0s, audio)
     hfreqs, hmags, hphases, _ = hpr_anal(audio, f0s)
-    hfreqs, hmags, f0s = refine_harmonics_twm(hfreqs, hmags, f0s, f0et=10.0, f0_refinement_range_cents=10)
+    hfreqs, hmags, hphases, f0 = supress_timbre_anomalies(hfreqs, hmags, hphases, f0s)
+    hfreqs, hmags, hphases, f0s = refine_harmonics_twm(hfreqs, hmags, hphases,
+                                                       f0s, f0et=5.0, f0_refinement_range_cents=15)
     print("analysis:", filename)
     harmonic_audio = SM.sineModelSynth(hfreqs, hmags, hphases, N=512, H=HOP_SIZE, fs=SAMPLING_RATE)
     sf.write(os.path.join(path_folder_synth, filename[:-3] + "RESYN.wav"), harmonic_audio, 44100, 'PCM_24')
@@ -197,7 +252,7 @@ if __name__ == '__main__':
     for name in names:
         print("started processing the folder ", name)
         process_folder(path_folder_audio=os.path.join(dataset_folder, name), 
-                       path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", "crepe_original", name),
+                       path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", "firstRun", name),
                        path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                        n_jobs=16)
 
