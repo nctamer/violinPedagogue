@@ -6,6 +6,7 @@ from scipy import interpolate
 from scipy.signal import get_window, medfilt
 from utils.pitchfilter import PitchFilter
 import sys
+import pickle
 from pathlib import Path
 if os.path.join(Path().absolute(), 'sms_tools', 'models') not in sys.path:
     sys.path.append(os.path.join(Path().absolute(), 'sms_tools', 'models'))
@@ -17,7 +18,7 @@ from sms_tools.models import sineModel as SM
 from sms_tools.models.utilFunctions import refinef0Twm
 import soundfile as sf
 from joblib import Parallel, delayed
-from sklearn.ensemble import IsolationForest
+from sklearn.covariance import EllipticEnvelope
 from time import time as taymit
 
 HOP_SIZE = 128
@@ -46,7 +47,7 @@ def silence_unvoiced_segments(pitch_track_csv, confidence_threshold=0.2, min_voi
     :return: input csv file with the silenced segments
     """
     annotation_interval_ms = 1000*pitch_track_csv.loc[:1, "time"].diff()[1]
-    voiced_th = int(np.ceil(min_voiced_segment_ms)/annotation_interval_ms)
+    voiced_th = int(np.ceil(min_voiced_segment_ms/annotation_interval_ms))
 
     # we do not accept the segment if a close neighbors do not have a confidence > 0.7
     smoothened_confidences = medfilt(pitch_track_csv["confidence"], kernel_size=11)
@@ -132,7 +133,7 @@ def refine_harmonics_twm(hfreq, hmag, hphases, f0, f0et=5.0, f0_refinement_range
                 hfreq[frame] = 0
                 hmag[frame] = 0
     
-    min_voiced_segment_len = int(0.05//(HOP_SIZE/SAMPLING_RATE))
+    min_voiced_segment_len = int(np.ceil(0.1/(HOP_SIZE/SAMPLING_RATE)))
     voiced = silence_segments_one_run(f0, 0, min_voiced_segment_len)
     f0[~voiced] = 0
     hfreq[~voiced] = 0
@@ -141,9 +142,8 @@ def refine_harmonics_twm(hfreq, hmag, hphases, f0, f0et=5.0, f0_refinement_range
     return hfreq, hmag, hphases, f0
 
 
-def supress_timbre_anomalies(hfreq, hmag, hphase, f0):
-    detector = IsolationForest().fit(hmag[f0 > 0, :12])
-    voiced = detector.predict(hmag[:, :12])
+def supress_timbre_anomalies(instrument_detector, hfreq, hmag, hphase, f0):
+    voiced = instrument_detector.predict(hmag[:, :12])
     voiced = voiced > 0
     f0[~voiced] = 0
     hfreq[~voiced] = 0
@@ -165,9 +165,12 @@ def apply_pitch_filter(pitch_track_csv, min_chunk_size=20, median=True, confiden
         [type]: [description]
     """
     if median:
-        filter_bool = np.array(pitch_track_csv["confidence"]<confidence_threshold).reshape(-1)  # use filter when confidence is small
-        filter_bool = np.logical_and(filter_bool, np.array(pitch_track_csv["frequency"]>0).reshape(-1))  # but in the voiced regions
-        filtered_est = medfilt(pitch_track_csv["frequency"], kernel_size=(2*(min_chunk_size//2))+1)  # ensure the filter size is odd
+        # use filter when confidence is small
+        filter_bool = np.array(pitch_track_csv["confidence"]<confidence_threshold).reshape(-1)
+        # but in the voiced regions
+        filter_bool = np.logical_and(filter_bool, np.array(pitch_track_csv["frequency"]>0).reshape(-1))
+        # ensure the filter size is odd
+        filtered_est = medfilt(pitch_track_csv["frequency"], kernel_size=(2*(min_chunk_size//2))+1)
         pitch_track_csv.loc[filter_bool, "frequency"] = filtered_est[filter_bool]
     else:
         pitch_filter = PitchFilter(min_chunk_size=min_chunk_size)
@@ -202,44 +205,62 @@ def analyze_folder(path_folder_audio, path_folder_f0, path_folder_anal, n_jobs=4
     return
 
 
-def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth):
+def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth, instrument_detector=None):
+    time_start = taymit()
     audio = librosa.load(os.path.join(path_folder_audio, filename), sr=SAMPLING_RATE, mono=True)[0]
     f0s = pd.read_csv(os.path.join(path_folder_f0, filename[:-3] + "f0.csv"))
     f0s = silence_unvoiced_segments(f0s, confidence_threshold=0.3, min_voiced_segment_ms=100)
     f0s = apply_pitch_filter(f0s, min_chunk_size=9, median=True, confidence_threshold=0.75)
     f0s, conf, time = interpolate_f0_to_sr(f0s, audio)
+    time_load = taymit()
+    print("loading {:s} took {:.3f}".format(filename, time_load-time_start))
     hfreqs, hmags, hphases = anal(audio, f0s)
-    #hfreqs, hmags, hphases, f0 = supress_timbre_anomalies(hfreqs, hmags, hphases, f0s)
+    time_anal = taymit()
+    print("anal {:s} took {:.3f}".format(filename, time_anal-time_load))
+    if instrument_detector is not None:
+        hfreqs, hmags, hphases, f0 = supress_timbre_anomalies(instrument_detector, hfreqs, hmags, hphases, f0s)
     hfreqs, hmags, hphases, f0s = refine_harmonics_twm(hfreqs, hmags, hphases,
                                                        f0s, f0et=5.0, f0_refinement_range_cents=15)
     time = time[:len(f0s)]
     conf = conf[:len(f0s)]
-    print("analysis:", filename)
+    time_refine = taymit()
+    print("refining parameters for {:s} took {:.3f}. coverage: {:.3f}".format(filename,
+                                                                              time_refine-time_anal,
+                                                                              sum(f0s > 1) / sum(conf > 0.2)))
     harmonic_audio = SM.sineModelSynth(hfreqs, hmags, hphases, N=512, H=HOP_SIZE, fs=SAMPLING_RATE)
     sf.write(os.path.join(path_folder_synth, filename[:-3] + "RESYN.wav"), harmonic_audio, 44100, 'PCM_24')
     df = pd.DataFrame([time, f0s]).T
-    df.to_csv(os.path.join(path_folder_synth, filename[:-3] + "RESYN.csv"), header=False, index=False, float_format='%.6f')
-    print("synthesis:", filename)
+    df.to_csv(os.path.join(path_folder_synth, filename[:-3] + "RESYN.csv"), header=False, index=False,
+              float_format='%.6f')
+    time_synth = taymit()
+    print("synthesizing {:s} took {:.3f}. Total resynthesis took {:.3f}".format(filename, time_synth-time_refine,
+                                                                                time_synth-time_load))
     return
 
 
-def process_folder(path_folder_audio, path_folder_f0, path_folder_synth, n_jobs=4):
+def process_folder(path_folder_audio, path_folder_f0, path_folder_synth, instrument_detector=None,  n_jobs=4):
     if not os.path.exists(path_folder_synth):
         # Create a new directory because it does not exist 
         os.makedirs(path_folder_synth)
     Parallel(n_jobs=n_jobs)(delayed(process_file)(
-        file, path_folder_audio, path_folder_f0, path_folder_synth) for file in sorted(os.listdir(path_folder_audio)))
+        file, path_folder_audio, path_folder_f0, path_folder_synth, instrument_detector)
+                            for file in sorted(os.listdir(path_folder_audio)))
     return
 
 
 if __name__ == '__main__':
     names = ["L1", "L2", "L3", "L4", "L5", "L6"]
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
-
+    with open(os.path.join(dataset_folder, 'EllipticEnvelopeInstrumentModel.pkl'), 'rb') as modelfile:
+        instrument_timbre_detector = pickle.load(modelfile)
     for name in names:
-        print("started processing the folder ", name)
-        process_folder(path_folder_audio=os.path.join(dataset_folder, name), 
-                       path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", "firstRun", name),
+        time_grade = taymit()
+        print("Started processing grade ", name)
+        process_folder(path_folder_audio=os.path.join(dataset_folder, name),
+                       path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", "crepe_original", name),
                        path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
+                       instrument_detector=instrument_timbre_detector,
                        n_jobs=16)
+        time_grade = taymit() - time_grade
+        print("Grade {:s} took {:.3f}".format(name, time_grade))
 
