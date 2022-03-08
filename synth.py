@@ -207,12 +207,14 @@ def analyze_folder(path_folder_audio, path_folder_f0, path_folder_anal, n_jobs=4
 
 
 def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth, instrument_detector=None):
-    th_lc = 0.3
+    th_lc = 0.2
     th_hc = 0.7
     voiced_th_ms = 100
     time_start = taymit()
     audio = librosa.load(os.path.join(path_folder_audio, filename), sr=SAMPLING_RATE, mono=True)[0]
     f0s = pd.read_csv(os.path.join(path_folder_f0, filename[:-3] + "f0.csv"))
+    pre_anal_coverage = f0s['confidence'] > th_lc
+    pre_anal_coverage = sum(pre_anal_coverage)/len(pre_anal_coverage)
     f0s = silence_unvoiced_segments(f0s, low_confidence_threshold=th_lc, high_confidence_threshold=th_hc,
                                     min_voiced_segment_ms=voiced_th_ms)
     f0s = apply_pitch_filter(f0s, min_chunk_size=21, median=True, confidence_threshold=th_hc)
@@ -231,9 +233,11 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
                                                        f0s, f0et=5.0, f0_refinement_range_cents=15,
                                                        min_voiced_segment_ms=voiced_th_ms)
     time_refine = taymit()
+    post_anal_coverage = sum(f0s > 0) / len(f0s)
+    coverage = post_anal_coverage / pre_anal_coverage
     print("refining parameters for {:s} took {:.3f}. coverage: {:.3f}".format(filename,
                                                                               time_refine-time_anal,
-                                                                              sum(f0s > 1) / sum(conf > 0.2)))
+                                                                              coverage))
     harmonic_audio = SM.sineModelSynth(hfreqs, hmags, hphases, N=512, H=HOP_SIZE, fs=SAMPLING_RATE)
     sf.write(os.path.join(path_folder_synth, filename[:-3] + "RESYN.wav"), harmonic_audio, 44100, 'PCM_24')
     df = pd.DataFrame([time, f0s]).T
