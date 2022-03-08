@@ -153,7 +153,7 @@ def harmonicModel(x, fs, w, N, t, nH, minf0, maxf0, f0et):
     return y
 
 
-def harmonicModelAnal(x, f0, fs, w, N, H, t, nH, minf0, maxf0, f0et, harmDevSlope=0.01, minSineDur=.02):
+def harmonicModelAnal(x, f0, fs, w, N, H, t, nH, harmDevSlope=0.01, minSineDur=.02):
     """
 	Analysis of a sound using the sinusoidal harmonic model
 	x: input sound; fs: sampling rate, w: analysis window; N: FFT size (minimum 512); t: threshold in negative dB,
@@ -173,7 +173,6 @@ def harmonicModelAnal(x, f0, fs, w, N, H, t, nH, minf0, maxf0, f0et, harmDevSlop
     x = np.append(x, np.zeros(hM2))  # add zeros at the end to analyze last sample
     pin = hM1  # init sound pointer in middle of anal window
     pend = x.size - hM1  # last sample to start a frame
-    fftbuffer = np.zeros(N)  # initialize buffer for FFT
     w = w / sum(w)  # normalize analysis window
     hfreqp = []  # initialize harmonic frequencies of previous frame
     f0_idx = 0
@@ -197,5 +196,5 @@ def harmonicModelAnal(x, f0, fs, w, N, H, t, nH, minf0, maxf0, f0et, harmDevSlop
         pin += H
         f0_idx += 1
     xhfreq = SM.cleaningSineTracks(xhfreq, round(fs * minSineDur / H))  # delete tracks shorter than minSineDur
-    return xhfreq, xhmag, xhphase, f0_idx
+    return xhfreq, xhmag, xhphase
 

@@ -18,9 +18,11 @@ from sms_tools.models.utilFunctions import refinef0Twm
 import soundfile as sf
 from joblib import Parallel, delayed
 from sklearn.ensemble import IsolationForest
+from time import time as taymit
 
 HOP_SIZE = 128
 SAMPLING_RATE = 44100
+WINDOW_SIZE = 1001
 
 
 def silence_segments_one_run(confidences, confidence_threshold, segment_len_th):
@@ -35,7 +37,7 @@ def silence_segments_one_run(confidences, confidence_threshold, segment_len_th):
     return voiced
 
 
-def silence_unvoiced_segments(pitch_track_csv, confidence_threshold=0.08, min_voiced_segment_ms=12):
+def silence_unvoiced_segments(pitch_track_csv, confidence_threshold=0.2, min_voiced_segment_ms=12):
     """
     Accepts crepe output in the csv format and removes unvoiced segments with confidence and accepted voiced segment duration
     :param pitch_track_csv: csv with [ºtimeº, ºfrequencyº, ºconfidenceº] fields
@@ -46,9 +48,9 @@ def silence_unvoiced_segments(pitch_track_csv, confidence_threshold=0.08, min_vo
     annotation_interval_ms = 1000*pitch_track_csv.loc[:1, "time"].diff()[1]
     voiced_th = int(np.ceil(min_voiced_segment_ms)/annotation_interval_ms)
 
-    # we do not accept the segment if the close neighbors do not have a confidence > 0.5
+    # we do not accept the segment if a close neighbors do not have a confidence > 0.7
     smoothened_confidences = medfilt(pitch_track_csv["confidence"], kernel_size=11)
-    smooth_voiced = silence_segments_one_run(smoothened_confidences, confidence_threshold=0.5, segment_len_th=voiced_th)
+    smooth_voiced = silence_segments_one_run(smoothened_confidences, confidence_threshold=0.7, segment_len_th=voiced_th)
 
     # we also do not accept the pitch values if the individual confidences are really low
     hard_voiced = silence_segments_one_run(pitch_track_csv["confidence"], confidence_threshold=confidence_threshold, segment_len_th=voiced_th)
@@ -73,77 +75,36 @@ def interpolate_f0_to_sr(pitch_track_csv, audio, sr=SAMPLING_RATE, hop_size=HOP_
     f = interpolate.interp1d(pitch_track_csv["time"],
                              pitch_track_csv["frequency"],
                              kind="cubic", fill_value="extrapolate")
-    time = np.array(range(int(np.ceil(len(audio)/hop_size)))) * (hop_size/sr)
+    c = interpolate.interp1d(pitch_track_csv["time"],
+                             pitch_track_csv["confidence"],
+                             kind="cubic", fill_value="extrapolate")
+    start_frame = int(np.floor((WINDOW_SIZE + 1) / 2))
+    end_frame = len(audio) - (len(audio) % hop_size) + start_frame
+    time = np.array(range(start_frame, end_frame+1, hop_size)) / sr
     pitch_track_np = f(time)
+    confidence_np = c(time)
     pitch_track_np[pitch_track_np < 10] = 0  # interpolation might introduce odd frequencies
-    return pitch_track_np, time
+    confidence_np[pitch_track_np < 10] = 0
+    return pitch_track_np, confidence_np, time
 
 
-def hpr_anal(audio, f0, hop_size=HOP_SIZE, sr=SAMPLING_RATE):
+def anal(audio, f0, hop_size=HOP_SIZE, sr=SAMPLING_RATE):
     # Get harmonic content from audio using extracted pitch as reference
-    # Get freq limits to compute minf0
-    tmp_est_freq = [x for x in f0 if x > 20]
-    if len(tmp_est_freq) > 0:
-        minf0 = min(tmp_est_freq) - 20
-    else:
-        minf0 = 0
-
-    w = get_window('hanning', 1001, fftbins=True)
-    f0et = 10.0
-    f0_refinement_range_cents = 10
-    hfreq, hmag, hphase, xr, len_f0 = HPR.hprModelAnal(
-        x=audio,
-        f0=f0,
-        fs=sr,
-        w=w,
-        minf0=minf0,
-        maxf0=max(f0) + 50,
-        H=hop_size,
-        N=2048,
-        f0et=f0et,
-        t=-90,
-        nH=30,
-        harmDevSlope=0.001,
-        minSineDur=0.001
-    )
-    return hfreq, hmag, hphase, xr
-
-
-def anal(audio, f0, stochastic=False, hop_size=HOP_SIZE, sr=SAMPLING_RATE):
-    # Get harmonic content from audio using extracted pitch as reference
-    # Get freq limits to compute minf0
-    tmp_est_freq = [x for x in f0 if x > 20]
-    if len(tmp_est_freq) > 0:
-        minf0 = min(tmp_est_freq) - 20
-    else:
-        minf0 = 0
-
-    w = get_window('hanning', 1001, fftbins=True)
-    f0et = 10.0
-    f0_refinement_range_cents = 10
+    w = get_window('hanning', WINDOW_SIZE, fftbins=True)
     hfreq, hmag, hphase = harmonicModelAnal(
         x=audio,
         f0=f0,
         fs=sr,
         w=w,
-        minf0=minf0,
-        maxf0=max(f0) + 50,
         H=hop_size,
         N=2048,
-        f0et=f0et,
         t=-90,
         nH=30,
         harmDevSlope=0.001,
         minSineDur=0.001
     )
-    if ~stochastic:
-        return hfreq, hmag, hphase
-    else:
-        # subtract sinusoids from original sound
-        xr = sineSubtraction(x=audio, N=512, H=hop_size, sfreq=hfreq, smag=hmag, sphase=hphase, fs=sr)
-        # perform stochastic analysis of residual
-        stocEnv = stochasticModelAnal(xr, H=hop_size, N=hop_size*2, stocf=0.5)
-        return hfreq, hmag, hphase, stocEnv
+    return hfreq, hmag, hphase
+
 
 def refine_harmonics_twm(hfreq, hmag, hphases, f0, f0et=5.0, f0_refinement_range_cents=10):
     """
@@ -159,7 +120,7 @@ def refine_harmonics_twm(hfreq, hmag, hphases, f0, f0et=5.0, f0_refinement_range
     if len(f0) > len(hfreq):
         f0 = f0[:len(hfreq)]
     for frame, f0_frame in enumerate(f0):
-        if f0_frame > 0: # for the valid frequencies
+        if f0_frame > 0:  # for the valid frequencies
             pfreq = hfreq[frame]
             pmag = hmag[frame]
             f0_twm, f0err_twm = refinef0Twm(pfreq, pmag, f0_frame, refinement_range_cents=f0_refinement_range_cents)
@@ -191,7 +152,6 @@ def supress_timbre_anomalies(hfreq, hmag, hphase, f0):
     return hfreq, hmag, hphase, f0
 
 
-
 def apply_pitch_filter(pitch_track_csv, min_chunk_size=20, median=True, confidence_threshold=0.8):
     """AI is creating summary for apply_pitch_filter
 
@@ -216,20 +176,47 @@ def apply_pitch_filter(pitch_track_csv, min_chunk_size=20, median=True, confiden
     return pitch_track_csv
 
 
+def analyze_file(filename, path_folder_audio, path_folder_f0, path_folder_anal):
+    time_start = taymit()
+    audio = librosa.load(os.path.join(path_folder_audio, filename), sr=SAMPLING_RATE, mono=True)[0]
+    f0s = pd.read_csv(os.path.join(path_folder_f0, filename[:-3] + "f0.csv"))
+    f0s, conf, time = interpolate_f0_to_sr(f0s, audio)
+    time_load = taymit()
+    print("loading {:s} took {:.3f}".format(filename, time_load-time_start))
+    hfreqs, hmags, _ = anal(audio, f0s)
+    f0s = f0s[:len(hmags)]
+    conf = conf[:len(hmags)]
+    time = time[:len(hmags)]
+    time_anal = taymit()
+    print("anal {:s} took {:.3f}".format(filename, time_anal-time_load))
+    np.save(os.path.join(path_folder_anal, filename[:-3] + "npy"), hmags[conf > 0.9, :12])
+    return
+
+
+def analyze_folder(path_folder_audio, path_folder_f0, path_folder_anal, n_jobs=4):
+    if not os.path.exists(path_folder_anal):
+        # Create a new directory because it does not exist
+        os.makedirs(path_folder_anal)
+    Parallel(n_jobs=n_jobs)(delayed(analyze_file)(
+        file, path_folder_audio, path_folder_f0, path_folder_anal) for file in sorted(os.listdir(path_folder_audio)))
+    return
+
+
 def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth):
     audio = librosa.load(os.path.join(path_folder_audio, filename), sr=SAMPLING_RATE, mono=True)[0]
     f0s = pd.read_csv(os.path.join(path_folder_f0, filename[:-3] + "f0.csv"))
-    f0s = silence_unvoiced_segments(f0s, confidence_threshold=0.5, min_voiced_segment_ms=100)
+    f0s = silence_unvoiced_segments(f0s, confidence_threshold=0.3, min_voiced_segment_ms=100)
     f0s = apply_pitch_filter(f0s, min_chunk_size=9, median=True, confidence_threshold=0.75)
-    f0s, time = interpolate_f0_to_sr(f0s, audio)
-    hfreqs, hmags, hphases, _ = hpr_anal(audio, f0s)
-    hfreqs, hmags, hphases, f0 = supress_timbre_anomalies(hfreqs, hmags, hphases, f0s)
+    f0s, conf, time = interpolate_f0_to_sr(f0s, audio)
+    hfreqs, hmags, hphases = anal(audio, f0s)
+    #hfreqs, hmags, hphases, f0 = supress_timbre_anomalies(hfreqs, hmags, hphases, f0s)
     hfreqs, hmags, hphases, f0s = refine_harmonics_twm(hfreqs, hmags, hphases,
                                                        f0s, f0et=5.0, f0_refinement_range_cents=15)
+    time = time[:len(f0s)]
+    conf = conf[:len(f0s)]
     print("analysis:", filename)
     harmonic_audio = SM.sineModelSynth(hfreqs, hmags, hphases, N=512, H=HOP_SIZE, fs=SAMPLING_RATE)
     sf.write(os.path.join(path_folder_synth, filename[:-3] + "RESYN.wav"), harmonic_audio, 44100, 'PCM_24')
-    time = time[:len(f0s)]
     df = pd.DataFrame([time, f0s]).T
     df.to_csv(os.path.join(path_folder_synth, filename[:-3] + "RESYN.csv"), header=False, index=False, float_format='%.6f')
     print("synthesis:", filename)
