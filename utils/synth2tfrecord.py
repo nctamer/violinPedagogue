@@ -13,6 +13,12 @@ def process_file(stem, path_folder_synth, path_folder_tfrecord):
     labels = np.loadtxt(os.path.join(path_folder_synth, stem + '.csv'), delimiter=',')
 
     nonzero = labels[:, 1] > 0
+    absdiff = np.abs(np.diff(np.concatenate(([False], nonzero, [False]))))
+    ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
+    nonzero[ranges[:, 0]] = False
+    nonzero[ranges[:, 1]-1] = False
+    # get rid of the boundary points since it may contain some artifacts
+    # since the hop size in synthesis is 2.9 ms it roughly corresponds to 512/16000
     labels = labels[nonzero, :]
 
     sr = 16000
@@ -61,4 +67,4 @@ for name in names:
 
     process_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                    path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord", name),
-                   n_jobs=8)
+                   n_jobs=16)

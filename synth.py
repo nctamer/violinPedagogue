@@ -143,8 +143,14 @@ def refine_harmonics_twm(hfreq, hmag, hphases, f0, f0et=5.0, f0_refinement_range
     return hfreq, hmag, hphases, f0
 
 
-def supress_timbre_anomalies(instrument_detector, hfreq, hmag, hphase, f0):
-    voiced = instrument_detector.predict(hmag[:, :12])
+def supress_timbre_anomalies(instrument_detector, hfreq, hmag, hphase, f0, instrument_detector_normalize=False):
+    hmag_ptr = np.copy(hmag)[:, :12]
+    if instrument_detector_normalize:
+        hvalid = hmag_ptr.sum(axis=1) != 0
+        hmag_ptr[hvalid] = hmag_ptr[hvalid] + 100
+        hvalid = np.logical_and(hvalid, hmag_ptr[:, 0] > 0)
+        hmag_ptr = np.divide(hmag_ptr, hmag_ptr[:, 0][:, None], where=hvalid[:, None])
+    voiced = instrument_detector.predict(hmag_ptr)
     voiced = voiced > 0
     f0[~voiced] = 0
     hfreq[~voiced] = 0
@@ -206,7 +212,8 @@ def analyze_folder(path_folder_audio, path_folder_f0, path_folder_anal, n_jobs=4
     return
 
 
-def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth, instrument_detector=None):
+def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
+                 instrument_detector=None, instrument_detector_normalize=False):
     th_lc = 0.2
     th_hc = 0.7
     voiced_th_ms = 100
@@ -228,7 +235,8 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
     time_anal = taymit()
     print("anal {:s} took {:.3f}".format(filename, time_anal-time_load))
     if instrument_detector is not None:
-        hfreqs, hmags, hphases, f0 = supress_timbre_anomalies(instrument_detector, hfreqs, hmags, hphases, f0s)
+        hfreqs, hmags, hphases, f0 = supress_timbre_anomalies(instrument_detector, hfreqs, hmags, hphases, f0s,
+                                                              instrument_detector_normalize)
     hfreqs, hmags, hphases, f0s = refine_harmonics_twm(hfreqs, hmags, hphases,
                                                        f0s, f0et=5.0, f0_refinement_range_cents=15,
                                                        min_voiced_segment_ms=voiced_th_ms)
@@ -249,12 +257,13 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
     return
 
 
-def process_folder(path_folder_audio, path_folder_f0, path_folder_synth, instrument_detector=None,  n_jobs=4):
+def process_folder(path_folder_audio, path_folder_f0, path_folder_synth,
+                   instrument_detector=None, instrument_detector_normalize=False, n_jobs=4):
     if not os.path.exists(path_folder_synth):
         # Create a new directory because it does not exist 
         os.makedirs(path_folder_synth)
     Parallel(n_jobs=n_jobs)(delayed(process_file)(
-        file, path_folder_audio, path_folder_f0, path_folder_synth, instrument_detector)
+        file, path_folder_audio, path_folder_f0, path_folder_synth, instrument_detector, instrument_detector_normalize)
                             for file in sorted(os.listdir(path_folder_audio)))
     return
 
@@ -262,7 +271,16 @@ def process_folder(path_folder_audio, path_folder_f0, path_folder_synth, instrum
 if __name__ == '__main__':
     names = ["L1", "L2", "L3", "L4", "L5", "L6"]
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
-    with open(os.path.join(dataset_folder, 'EllipticEnvelopeInstrumentModel.pkl'), 'rb') as modelfile:
+
+    instrument_model_method = "normalized"
+
+    if instrument_model_method == "normalized":
+        instrument_model_file = os.path.join(dataset_folder, 'EllipticEnvelope_' + instrument_model_method + '.pkl')
+        instrument_model_normalize = True
+    else:
+        instrument_model_file = os.path.join(dataset_folder, 'EllipticEnvelopeInstrumentModel.pkl')
+        instrument_model_normalize = False
+    with open(instrument_model_file, 'rb') as modelfile:
         instrument_timbre_detector = pickle.load(modelfile)
     for name in names:
         time_grade = taymit()
@@ -271,7 +289,7 @@ if __name__ == '__main__':
                        path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", "crepe_original", name),
                        path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                        instrument_detector=instrument_timbre_detector,
-                       n_jobs=16)
+                       instrument_detector_normalize=instrument_model_normalize, n_jobs=16)
         time_grade = taymit() - time_grade
         print("Grade {:s} took {:.3f}".format(name, time_grade))
 

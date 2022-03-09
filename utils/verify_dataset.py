@@ -8,9 +8,13 @@ from tqdm import tqdm
 
 options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
 
-dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire", "tfrecord", "L1")
-
-records = [os.path.join(dataset_folder, file) for file in os.listdir(dataset_folder) if file.endswith('.tfrecord')]
+dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire", "tfrecord")
+records = []
+for grade_name in sorted(os.listdir(dataset_folder)):
+    grade_folder = os.path.join(dataset_folder, grade_name)
+    for file in sorted(os.listdir(grade_folder)):
+        if file.endswith('.tfrecord'):
+            records.append(os.path.join(grade_folder, file))
 
 print(len(records), 'records found')
 
