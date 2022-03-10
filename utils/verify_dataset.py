@@ -29,6 +29,11 @@ for record in tqdm(records):
         audio = example.features.feature['audio'].float_list.value
         pitch = example.features.feature['pitch'].float_list.value[0]
 
+        try:
+            assert len(audio) == 1024
+        except AssertionError:
+            print("the audio segment length should be 1024 in the dataset!!")
+
         energies.append(np.linalg.norm(audio))
         pitches.append(pitch)
 

@@ -7,6 +7,7 @@ from scipy.signal import get_window, medfilt
 from utils.pitchfilter import PitchFilter
 import sys
 import pickle
+import random
 from pathlib import Path
 if os.path.join(Path().absolute(), 'sms_tools', 'models') not in sys.path:
     sys.path.append(os.path.join(Path().absolute(), 'sms_tools', 'models'))
@@ -213,7 +214,7 @@ def analyze_folder(path_folder_audio, path_folder_f0, path_folder_anal, n_jobs=4
 
 
 def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
-                 instrument_detector=None, instrument_detector_normalize=False):
+                 instrument_detector=None, instrument_detector_normalize=False, pitch_shift=False):
     th_lc = 0.2
     th_hc = 0.7
     voiced_th_ms = 100
@@ -251,6 +252,21 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
     df = pd.DataFrame([time, f0s]).T
     df.to_csv(os.path.join(path_folder_synth, filename[:-3] + "RESYN.csv"), header=False, index=False,
               float_format='%.6f')
+    if pitch_shift:
+        sign = random.choice([-1, 1])
+        val = random.choice(range(1, 26))
+        pitch_shift_cents = sign * val
+
+        alt_f0s = f0s * pow(2, (pitch_shift_cents / 1200))
+        # Synthesize audio with the shifted harmonic content
+        alt_hfreqs = hfreqs * pow(2, (pitch_shift_cents / 1200))
+        alt_harmonic_audio = SM.sineModelSynth(alt_hfreqs, hmags, np.array([]), N=512, H=HOP_SIZE, fs=SAMPLING_RATE)
+        sf.write(os.path.join(path_folder_synth, filename[:-3] + "shiftedRESYN.wav"), alt_harmonic_audio,
+                 44100, 'PCM_24')
+        df = pd.DataFrame([time, alt_f0s]).T
+        df.to_csv(os.path.join(path_folder_synth, filename[:-3] + "shiftedRESYN.csv"), header=False, index=False,
+                  float_format='%.6f')
+
     time_synth = taymit()
     print("synthesizing {:s} took {:.3f}. Total resynthesis took {:.3f}".format(filename, time_synth-time_refine,
                                                                                 time_synth-time_load))

@@ -31,7 +31,7 @@ def process_file(stem, path_folder_synth, path_folder_tfrecord):
         pitch = row[1]
         center = int(row[0] * sr)
         segment = audio[center - 512:center + 512]
-        if len(segment):
+        if len(segment) == 1024:
             example = tf.train.Example(features=tf.train.Features(feature={
                 "audio": tf.train.Feature(float_list=tf.train.FloatList(value=segment)),
                 "pitch": tf.train.Feature(float_list=tf.train.FloatList(value=[pitch]))
