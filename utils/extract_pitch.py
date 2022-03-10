@@ -1,14 +1,20 @@
 import librosa
 import os
 import glob
+import numpy as np
 import pandas as pd
+import json
+from scipy import interpolate
+from mir_eval.melody import hz2cents
 try:
     import marl_crepe as mycrepe
+    from crepe.evaluation import accuracies
 except ModuleNotFoundError:
     import sys
     # Add the ptdraft folder path to the sys.path list
     sys.path.append('..')
     import marl_crepe as mycrepe
+    from crepe.evaluation import accuracies
 
 
 def predict_from_file_list(audio_files, output_f0_files, model_path):
@@ -70,7 +76,64 @@ def extract_pitch_with_model(model_name):
     return
 
 
+def evaluate(predicted_file_list, ground_truth_file_list):
+    cents_predicted, cents_ground = [], []
+    for i, predicted_i in enumerate(predicted_file_list):
+        ground_i = ground_truth_file_list[i]
+        ground = pd.read_csv(ground_i, sep="\t", header=None, names=["time", "frequency"])
+
+        predicted = pd.read_csv(predicted_i)
+
+        f = interpolate.interp1d(predicted["time"], predicted["frequency"],
+                                 kind="cubic", fill_value="extrapolate")
+        f0_ground = ground["frequency"].values
+        f0_predicted = f(ground["time"])[f0_ground>0]
+        f0_ground = f0_ground[f0_ground>0]
+        cents_predicted.append(hz2cents(f0_predicted))
+        cents_ground.append(hz2cents(f0_ground))
+    cents_ground = np.hstack(cents_ground)
+    cents_predicted = np.hstack(cents_predicted)
+    rpa50, rca50 = accuracies(cents_ground, cents_predicted, cent_tolerance=50)
+    rpa25, rca25 = accuracies(cents_ground, cents_predicted, cent_tolerance=25)
+    rpa10, rca10 = accuracies(cents_ground, cents_predicted, cent_tolerance=10)
+    rpa5, rca5 = accuracies(cents_ground, cents_predicted, cent_tolerance=5)
+    return {"rpa50": rpa50, "rpa25": rpa25, "rpa10": rpa10, "rpa5": rpa5,
+            "rca50": rca50, "rca25": rca25, "rca10": rca10, "rca5": rca5}
+
+
+def urmp_evaluate_model(model_name, instrument='vn',
+                        urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP")):
+
+    dataset_folder = os.path.join(urmp_path, "Dataset")
+    pitch_tracks_folder = os.path.join(urmp_path, 'pitch_tracks', model_name)
+    predicted_file_list = sorted(glob.glob(os.path.join(pitch_tracks_folder, "*/AuSep*" + instrument + "*.f0.csv")))
+    ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*" + instrument + "*.txt")))
+    assert len(predicted_file_list)==len(ground_file_list)  # to ensure we have pitch tracks for all the instrument data
+    return evaluate(predicted_file_list=predicted_file_list, ground_truth_file_list=ground_file_list)
+
+
+def urmp_evaluate_all(instrument="vn", urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP")):
+    dataset_folder = os.path.join(urmp_path, "Dataset")
+    ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*" + instrument + "*.txt")))
+    evaluation = {}
+    for model_name in os.listdir(os.path.join(urmp_path, 'pitch_tracks')):
+        pitch_tracks_folder = os.path.join(urmp_path, 'pitch_tracks', model_name)
+        if os.path.isdir(pitch_tracks_folder):
+            predicted_file_list = sorted(glob.glob(os.path.join(pitch_tracks_folder,
+                                                                "*/AuSep*" + instrument + "*.f0.csv")))
+            assert len(predicted_file_list) == len(ground_file_list)
+            evaluation[model_name] = evaluate(predicted_file_list=predicted_file_list,
+                                              ground_truth_file_list=ground_file_list)
+            print(model_name)
+            eval_string = ""
+            for key, value in evaluation[model_name].items():
+                eval_string = eval_string + "{:s}: {:.3f}%   ".format(key, 100*value)
+            print(eval_string)
+    json.dump(evaluation, open(os.path.join(urmp_path, "pitch_tracks", "evaluation.json"), "w"))
+
 if __name__ == '__main__':
-    urmp_extract_pitch_with_model("original", instrument="vn")
-    urmp_extract_pitch_with_model("firstRun", instrument="vn")
+    urmp_extract_pitch_with_model("firstRunConstrainedRaw", instrument="vn")
+    urmp_evaluate_all(instrument="vn")
+    #urmp_extract_pitch_with_model("original", instrument="vn")
+    #
     #extract_pitch_with_model(model_name='firstRun')
