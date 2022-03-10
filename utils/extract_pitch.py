@@ -8,13 +8,13 @@ from scipy import interpolate
 from mir_eval.melody import hz2cents
 try:
     import marl_crepe as mycrepe
-    from crepe.evaluation import accuracies
+    from crepe import evaluation
 except ModuleNotFoundError:
     import sys
     # Add the ptdraft folder path to the sys.path list
     sys.path.append('..')
     import marl_crepe as mycrepe
-    from crepe.evaluation import accuracies
+    from crepe import evaluation
 
 
 def predict_from_file_list(audio_files, output_f0_files, model_path):
@@ -93,10 +93,10 @@ def evaluate(predicted_file_list, ground_truth_file_list):
         cents_ground.append(hz2cents(f0_ground))
     cents_ground = np.hstack(cents_ground)
     cents_predicted = np.hstack(cents_predicted)
-    rpa50, rca50 = accuracies(cents_ground, cents_predicted, cent_tolerance=50)
-    rpa25, rca25 = accuracies(cents_ground, cents_predicted, cent_tolerance=25)
-    rpa10, rca10 = accuracies(cents_ground, cents_predicted, cent_tolerance=10)
-    rpa5, rca5 = accuracies(cents_ground, cents_predicted, cent_tolerance=5)
+    rpa50, rca50 = evaluation.accuracies(cents_ground, cents_predicted, cent_tolerance=50)
+    rpa25, rca25 = evaluation.accuracies(cents_ground, cents_predicted, cent_tolerance=25)
+    rpa10, rca10 = evaluation.accuracies(cents_ground, cents_predicted, cent_tolerance=10)
+    rpa5, rca5 = evaluation.accuracies(cents_ground, cents_predicted, cent_tolerance=5)
     return {"rpa50": rpa50, "rpa25": rpa25, "rpa10": rpa10, "rpa5": rpa5,
             "rca50": rca50, "rca25": rca25, "rca10": rca10, "rca5": rca5}
 
@@ -128,8 +128,9 @@ def urmp_evaluate_all(instrument="vn", urmp_path=os.path.join(os.path.expanduser
             eval_string = ""
             for key, value in evaluation[model_name].items():
                 eval_string = eval_string + "{:s}: {:.3f}%   ".format(key, 100*value)
-            print(eval_string)
+            print(eval_string + "\n")
     json.dump(evaluation, open(os.path.join(urmp_path, "pitch_tracks", "evaluation.json"), "w"))
+
 
 if __name__ == '__main__':
     urmp_extract_pitch_with_model("firstRunConstrainedRaw", instrument="vn")
