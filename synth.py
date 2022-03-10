@@ -273,13 +273,14 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
     return
 
 
-def process_folder(path_folder_audio, path_folder_f0, path_folder_synth,
+def process_folder(path_folder_audio, path_folder_f0, path_folder_synth, pitch_shift=False,
                    instrument_detector=None, instrument_detector_normalize=False, n_jobs=4):
     if not os.path.exists(path_folder_synth):
         # Create a new directory because it does not exist 
         os.makedirs(path_folder_synth)
     Parallel(n_jobs=n_jobs)(delayed(process_file)(
-        file, path_folder_audio, path_folder_f0, path_folder_synth, instrument_detector, instrument_detector_normalize)
+        file, path_folder_audio, path_folder_f0, path_folder_synth, pitch_shift=pitch_shift,
+        instrument_detector=instrument_detector, instrument_detector_normalize=instrument_detector_normalize)
                             for file in sorted(os.listdir(path_folder_audio)))
     return
 
@@ -305,7 +306,8 @@ if __name__ == '__main__':
                        path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", "firstRunConstrainedRaw", name),
                        path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                        instrument_detector=instrument_timbre_detector,
-                       instrument_detector_normalize=instrument_model_normalize, n_jobs=16)
+                       instrument_detector_normalize=instrument_model_normalize,
+                       pitch_shift=True, n_jobs=1)
         time_grade = taymit() - time_grade
         print("Grade {:s} took {:.3f}".format(name, time_grade))
 
