@@ -71,6 +71,6 @@ def extract_pitch_with_model(model_name):
 
 
 if __name__ == '__main__':
-    urmp_extract_pitch_with_model("crepe_original", instrument="vn")
+    urmp_extract_pitch_with_model("original", instrument="vn")
     urmp_extract_pitch_with_model("firstRun", instrument="vn")
     #extract_pitch_with_model(model_name='firstRun')
