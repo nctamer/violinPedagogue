@@ -140,7 +140,7 @@ def urmp_evaluate_all(instrument="vn", urmp_path=os.path.join(os.path.expanduser
 
 
 if __name__ == '__main__':
-    urmp_extract_pitch_with_model("firstRunConstrainedRaw", instrument="vn")
+    urmp_extract_pitch_with_model("epoch180", instrument="vn")
     urmp_evaluate_all(instrument="vn")
     #urmp_extract_pitch_with_model("original", instrument="vn")
     #
