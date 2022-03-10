@@ -272,7 +272,7 @@ if __name__ == '__main__':
     names = ["L1", "L2", "L3", "L4", "L5", "L6"]
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
 
-    instrument_model_method = "normalized"
+    instrument_model_method = "raw"
 
     if instrument_model_method == "normalized":
         instrument_model_file = os.path.join(dataset_folder, 'EllipticEnvelope_' + instrument_model_method + '.pkl')
@@ -286,7 +286,7 @@ if __name__ == '__main__':
         time_grade = taymit()
         print("Started processing grade ", name)
         process_folder(path_folder_audio=os.path.join(dataset_folder, name),
-                       path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", "crepe_original", name),
+                       path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", "firstRunConstrainedRaw", name),
                        path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                        instrument_detector=instrument_timbre_detector,
                        instrument_detector_normalize=instrument_model_normalize, n_jobs=16)
