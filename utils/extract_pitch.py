@@ -8,14 +8,21 @@ from scipy import interpolate
 from mir_eval.melody import hz2cents
 try:
     import marl_crepe as mycrepe
-    from crepe import evaluation
 except ModuleNotFoundError:
     import sys
     # Add the ptdraft folder path to the sys.path list
     sys.path.append('..')
     import marl_crepe as mycrepe
-    from crepe import evaluation
 
+
+def accuracies(true_cents, predicted_cents, cent_tolerance=50):
+    from mir_eval.melody import raw_pitch_accuracy, raw_chroma_accuracy
+    assert true_cents.shape == predicted_cents.shape
+
+    voicing = np.ones(true_cents.shape)
+    rpa = raw_pitch_accuracy(voicing, true_cents, voicing, predicted_cents, cent_tolerance)
+    rca = raw_chroma_accuracy(voicing, true_cents, voicing, predicted_cents, cent_tolerance)
+    return rpa, rca
 
 def predict_from_file_list(audio_files, output_f0_files, model_path):
     for index, audio_file in enumerate(audio_files):
@@ -93,10 +100,10 @@ def evaluate(predicted_file_list, ground_truth_file_list):
         cents_ground.append(hz2cents(f0_ground))
     cents_ground = np.hstack(cents_ground)
     cents_predicted = np.hstack(cents_predicted)
-    rpa50, rca50 = evaluation.accuracies(cents_ground, cents_predicted, cent_tolerance=50)
-    rpa25, rca25 = evaluation.accuracies(cents_ground, cents_predicted, cent_tolerance=25)
-    rpa10, rca10 = evaluation.accuracies(cents_ground, cents_predicted, cent_tolerance=10)
-    rpa5, rca5 = evaluation.accuracies(cents_ground, cents_predicted, cent_tolerance=5)
+    rpa50, rca50 = accuracies(cents_ground, cents_predicted, cent_tolerance=50)
+    rpa25, rca25 = accuracies(cents_ground, cents_predicted, cent_tolerance=25)
+    rpa10, rca10 = accuracies(cents_ground, cents_predicted, cent_tolerance=10)
+    rpa5, rca5 = accuracies(cents_ground, cents_predicted, cent_tolerance=5)
     return {"rpa50": rpa50, "rpa25": rpa25, "rpa10": rpa10, "rpa5": rpa5,
             "rca50": rca50, "rca25": rca25, "rca10": rca10, "rca5": rca5}
 
