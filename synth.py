@@ -299,11 +299,11 @@ if __name__ == '__main__':
         instrument_model_normalize = False
     with open(instrument_model_file, 'rb') as modelfile:
         instrument_timbre_detector = pickle.load(modelfile)
-    for name in names:
+    for name in sorted(names)[::-1]:
         time_grade = taymit()
         print("Started processing grade ", name)
         process_folder(path_folder_audio=os.path.join(dataset_folder, name),
-                       path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", "firstRunConstrainedRaw", name),
+                       path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", "secondRunEpoch560", name),
                        path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                        instrument_detector=instrument_timbre_detector,
                        instrument_detector_normalize=instrument_model_normalize,

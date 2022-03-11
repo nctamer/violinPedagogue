@@ -140,7 +140,7 @@ def urmp_evaluate_all(instrument="vn", urmp_path=os.path.join(os.path.expanduser
 
 
 if __name__ == '__main__':
-    new_model_name = 'secondRunEpoch560'
+    new_model_name = 'secondRunEpoch700'
 
     extract_pitch_with_model(model_name=new_model_name)
     urmp_extract_pitch_with_model(new_model_name, instrument="vn")
