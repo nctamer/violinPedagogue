@@ -11,6 +11,7 @@ import random
 from pathlib import Path
 if os.path.join(Path().absolute(), 'sms_tools', 'models') not in sys.path:
     sys.path.append(os.path.join(Path().absolute(), 'sms_tools', 'models'))
+from utils.synth2tfrecord import process_folder as synth2tfrecord_folder
 from sms_tools.models import hprModel as HPR
 from sms_tools.models.harmonicModel import harmonicModelAnal
 from sms_tools.models.utilFunctions import sineSubtraction
@@ -334,6 +335,8 @@ if __name__ == '__main__':
                        instrument_detector=instrument_timbre_detector,
                        instrument_detector_normalize=instrument_model_normalize,
                        pitch_shift=True, n_jobs=16)
+        synth2tfrecord_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
+                              path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord", name),
+                              n_jobs=16)
         time_grade = taymit() - time_grade
         print("Grade {:s} took {:.3f}".format(name, time_grade))
-
