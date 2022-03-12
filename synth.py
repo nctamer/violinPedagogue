@@ -289,7 +289,33 @@ if __name__ == '__main__':
     names = ["L1", "L2", "L3", "L4", "L5", "L6"]
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
 
-    instrument_model_method = "raw"
+    instrument_model_method = "normalized"
+    estimate_instrument_model = True
+
+    if estimate_instrument_model:
+        # combine instrument model estimation with the synthesis. The analysis for the instrument estimation takes
+        # a long while, so only do it when really needed!
+        for name in names:
+            analyze_folder(path_folder_audio=os.path.join(dataset_folder, name),
+                           path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", "crepe_original", name),
+                           path_folder_anal=os.path.join(dataset_folder, "anal", name),
+                           n_jobs=16)
+        data = []
+        for name in names:
+            print("started processing the folder ", name)
+            path_folder_anal = os.path.join(dataset_folder, "anal", name)
+            for file in sorted(os.listdir(path_folder_anal)):
+                data.append(np.load(os.path.join(path_folder_anal, file)))
+        data = np.vstack(data)
+        print('data loaded')
+        if instrument_model_method == "normalized":
+            data = data+100
+            data = data[data[:, 0] > 0]
+            data = data/data[:, 0][:, None]
+        model = EllipticEnvelope().fit(data)
+        with open(os.path.join(dataset_folder, 'EllipticEnvelope_' + instrument_model_method + '.pkl'), 'wb') as outp:
+            pickle.dump(model, outp, pickle.HIGHEST_PROTOCOL)
+        print("FINISHED INSTRUMENT MODEL ESTIMATION!!! \n\n\n\n\n\n\n\n NOW THE SYNTHESIS STARTS!!!")
 
     if instrument_model_method == "normalized":
         instrument_model_file = os.path.join(dataset_folder, 'EllipticEnvelope_' + instrument_model_method + '.pkl')
@@ -307,7 +333,7 @@ if __name__ == '__main__':
                        path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                        instrument_detector=instrument_timbre_detector,
                        instrument_detector_normalize=instrument_model_normalize,
-                       pitch_shift=True, n_jobs=1)
+                       pitch_shift=True, n_jobs=16)
         time_grade = taymit() - time_grade
         print("Grade {:s} took {:.3f}".format(name, time_grade))
 

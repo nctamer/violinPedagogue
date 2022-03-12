@@ -6,10 +6,12 @@ import pandas as pd
 import json
 from scipy import interpolate
 from mir_eval.melody import hz2cents
+
 try:
     import marl_crepe as mycrepe
 except ModuleNotFoundError:
     import sys
+
     # Add the ptdraft folder path to the sys.path list
     sys.path.append('..')
     import marl_crepe as mycrepe
@@ -24,11 +26,12 @@ def accuracies(true_cents, predicted_cents, cent_tolerance=50):
     rca = raw_chroma_accuracy(voicing, true_cents, voicing, predicted_cents, cent_tolerance)
     return rpa, rca
 
-def predict_from_file_list(audio_files, output_f0_files, model_path):
+
+def predict_from_file_list(audio_files, output_f0_files, model_path, verbose=1):
     for index, audio_file in enumerate(audio_files):
         output_f0_file = output_f0_files[index]
         audio, sr = librosa.load(audio_file, mono=True)
-        time, frequency, confidence, _ = mycrepe.predict(audio, sr, model_path, viterbi=True)
+        time, frequency, confidence, _ = mycrepe.predict(audio, sr, model_path, viterbi=True, verbose=verbose)
         df = pd.DataFrame({"time": time, "frequency": frequency, "confidence": confidence},
                           columns=["time", "frequency", "confidence"])
         df.to_csv(output_f0_file, index=False)
@@ -36,8 +39,7 @@ def predict_from_file_list(audio_files, output_f0_files, model_path):
 
 
 def urmp_extract_pitch_with_model(model_name, instrument='vn',
-                                  urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP")):
-
+                                  urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP"), verbose=1):
     dataset_folder = os.path.join(urmp_path, "Dataset")
     out_folder = os.path.join(urmp_path, 'pitch_tracks', model_name)
 
@@ -56,12 +58,11 @@ def urmp_extract_pitch_with_model(model_name, instrument='vn',
                 output_f0_files.extend(
                     [os.path.join(out_folder, track, os.path.basename(_)[:-3] + "f0.csv") for _ in new_audio_files])
 
-    predict_from_file_list(audio_files, output_f0_files, model_path)
+    predict_from_file_list(audio_files, output_f0_files, model_path, verbose=verbose)
     return
 
 
-def extract_pitch_with_model(model_name):
-
+def extract_pitch_with_model(model_name, verbose=1):
     FOLDER = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
     OUT_FOLDER = os.path.join(FOLDER, 'pitch_tracks', model_name)
     AUDIO_FORMAT = ".mp3"
@@ -79,7 +80,7 @@ def extract_pitch_with_model(model_name):
         output_f0_files.extend(
             [os.path.join(OUT_FOLDER, grade, os.path.basename(_)[:-3] + "f0.csv") for _ in new_audio_files])
 
-    predict_from_file_list(audio_files, output_f0_files, model_path)
+    predict_from_file_list(audio_files, output_f0_files, model_path, verbose=verbose)
     return
 
 
@@ -94,8 +95,8 @@ def evaluate(predicted_file_list, ground_truth_file_list):
         f = interpolate.interp1d(predicted["time"], predicted["frequency"],
                                  kind="cubic", fill_value="extrapolate")
         f0_ground = ground["frequency"].values
-        f0_predicted = f(ground["time"])[f0_ground>0]
-        f0_ground = f0_ground[f0_ground>0]
+        f0_predicted = f(ground["time"])[f0_ground > 0]
+        f0_ground = f0_ground[f0_ground > 0]
         cents_predicted.append(hz2cents(f0_predicted))
         cents_ground.append(hz2cents(f0_ground))
     cents_ground = np.hstack(cents_ground)
@@ -110,12 +111,12 @@ def evaluate(predicted_file_list, ground_truth_file_list):
 
 def urmp_evaluate_model(model_name, instrument='vn',
                         urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP")):
-
     dataset_folder = os.path.join(urmp_path, "Dataset")
     pitch_tracks_folder = os.path.join(urmp_path, 'pitch_tracks', model_name)
     predicted_file_list = sorted(glob.glob(os.path.join(pitch_tracks_folder, "*/AuSep*" + instrument + "*.f0.csv")))
     ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*" + instrument + "*.txt")))
-    assert len(predicted_file_list)==len(ground_file_list)  # to ensure we have pitch tracks for all the instrument data
+    assert len(predicted_file_list) == len(
+        ground_file_list)  # to ensure we have pitch tracks for all the instrument data
     return evaluate(predicted_file_list=predicted_file_list, ground_truth_file_list=ground_file_list)
 
 
@@ -134,14 +135,14 @@ def urmp_evaluate_all(instrument="vn", urmp_path=os.path.join(os.path.expanduser
             print(model_name)
             eval_string = ""
             for key, value in evaluation[model_name].items():
-                eval_string = eval_string + "{:s}: {:.3f}%   ".format(key, 100*value)
+                eval_string = eval_string + "{:s}: {:.3f}%   ".format(key, 100 * value)
             print(eval_string + "\n")
     json.dump(evaluation, open(os.path.join(urmp_path, "pitch_tracks", "evaluation.json"), "w"))
 
 
 if __name__ == '__main__':
-    new_model_name = 'secondRunEpoch700'
+    new_model_name = 'firstRunFinal'
 
-    extract_pitch_with_model(model_name=new_model_name)
-    urmp_extract_pitch_with_model(new_model_name, instrument="vn")
+    urmp_extract_pitch_with_model(new_model_name, instrument="vn", verbose=1)
     urmp_evaluate_all(instrument="vn")
+    extract_pitch_with_model(model_name=new_model_name, verbose=0)

@@ -5,6 +5,7 @@ import os
 import numpy as np
 import tensorflow.compat.v1 as tf
 from tqdm import tqdm
+from mir_eval.melody import hz2cents
 
 options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
 
@@ -53,5 +54,15 @@ pitch_hist, _ = np.histogram(pitches, bins=pitch_bins)
 pitch_dist = pitch_hist / num_examples
 
 print("Pitch distribution:")
+for f, p in zip(pitch_bins, pitch_dist):
+    print("%4d" % f, "*" * int(p * 100))
+
+
+# Show the equal temperament histogram
+pitch_bins = np.linspace(-0, 100, 21)
+pitch_hist, _ = np.histogram(hz2cents(np.array(pitches)) % 100, bins=pitch_bins)
+pitch_dist = pitch_hist / num_examples
+
+print("Temperament distribution:")
 for f, p in zip(pitch_bins, pitch_dist):
     print("%4d" % f, "*" * int(p * 100))

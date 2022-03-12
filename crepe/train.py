@@ -31,7 +31,8 @@ def prepare_datasets(parent_folder, grades) -> (Dataset, (np.ndarray, np.ndarray
             validation_player = 'NONE'
         for path in paths:
             if validation_player in path:
-                validation_per_grade.append(os.path.join(parent_folder, grade, path))
+                if ".shiftedRESYN." not in path:
+                    validation_per_grade.append(os.path.join(parent_folder, grade, path))
             else:
                 train_per_grade.append(os.path.join(parent_folder, grade, path))
         train.append(train_per_grade)
@@ -106,9 +107,9 @@ def main():
     train_set, val_sets = prepare_datasets(dataset_folder, names)
     val_data = Dataset.concat([Dataset(*val_set) for val_set in val_sets]).collect()
 
-    options["load_model_weights"] = "models/original.h5"
-    options["save_model_weights"] = "secondRun.h5"
-    options["steps_per_epoch"] = 500
+    options["load_model_weights"] = "models/firstRunFinal.h5"
+    options["save_model_weights"] = "shifted.h5"
+    options["steps_per_epoch"] = 1000
     model: keras.Model = build_model()
     model.summary()
 
