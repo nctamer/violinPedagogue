@@ -291,10 +291,11 @@ if __name__ == '__main__':
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
 
     instrument_model_method = "normalized"
-    estimate_instrument_model = True
+    estimate_instrument_model = False
     model = "firstRunFinal"
 
     if estimate_instrument_model:
+        print("started instrument model estimation")
         # combine instrument model estimation with the synthesis. The analysis for the instrument estimation takes
         # a long while, so only do it when really needed!
         for name in names:
