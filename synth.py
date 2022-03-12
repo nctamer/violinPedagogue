@@ -292,13 +292,14 @@ if __name__ == '__main__':
 
     instrument_model_method = "normalized"
     estimate_instrument_model = True
+    model = "firstRunFinal"
 
     if estimate_instrument_model:
         # combine instrument model estimation with the synthesis. The analysis for the instrument estimation takes
         # a long while, so only do it when really needed!
         for name in names:
             analyze_folder(path_folder_audio=os.path.join(dataset_folder, name),
-                           path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", "crepe_original", name),
+                           path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", model, name),
                            path_folder_anal=os.path.join(dataset_folder, "anal", name),
                            n_jobs=16)
         data = []
@@ -330,7 +331,7 @@ if __name__ == '__main__':
         time_grade = taymit()
         print("Started processing grade ", name)
         process_folder(path_folder_audio=os.path.join(dataset_folder, name),
-                       path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", "secondRunEpoch560", name),
+                       path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", model, name),
                        path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                        instrument_detector=instrument_timbre_detector,
                        instrument_detector_normalize=instrument_model_normalize,
