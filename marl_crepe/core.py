@@ -260,7 +260,7 @@ def predict(audio, sr, model_path, model_capacity='full',
         confidence = np.array([activation[i, path[i]] for i in range(len(activation))])
         if combined_viterbi:
             raw_confidence = activation.max(axis=1)
-            problems = np.logical_and(confidence < 0.2, raw_confidence > 0.5)
+            problems = np.logical_and(confidence < 0.1, raw_confidence > 0.4)
             if any(problems):
                 problem_indices = np.nonzero(problems)[0]
                 for ind in problem_indices:
