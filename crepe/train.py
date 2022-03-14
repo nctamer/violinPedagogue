@@ -107,7 +107,7 @@ def main():
     train_set, val_sets = prepare_datasets(dataset_folder, names)
     val_data = Dataset.concat([Dataset(*val_set) for val_set in val_sets]).collect()
 
-    options["load_model_weights"] = "models/firstRunFinal.h5"
+    options["load_model_weights"] = "models/shifted2000.h5"
     options["save_model_weights"] = "shifted.h5"
     options["steps_per_epoch"] = 1000
     model: keras.Model = build_model()
