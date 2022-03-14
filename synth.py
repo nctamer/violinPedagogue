@@ -25,7 +25,7 @@ from time import time as taymit
 
 HOP_SIZE = 128
 SAMPLING_RATE = 44100
-WINDOW_SIZE = 1029  #int(2*(((1024/16000)*SAMPLING_RATE)//2))-1
+WINDOW_SIZE = 2047  #int(2*(((1024/16000)*SAMPLING_RATE)//2))-1
 WINDOW_TYPE = 'flattop'
 
 
