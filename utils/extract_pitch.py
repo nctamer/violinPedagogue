@@ -31,7 +31,8 @@ def predict_from_file_list(audio_files, output_f0_files, model_path, verbose=1):
     for index, audio_file in enumerate(audio_files):
         output_f0_file = output_f0_files[index]
         audio, sr = librosa.load(audio_file, mono=True)
-        time, frequency, confidence, _ = mycrepe.predict(audio, sr, model_path, viterbi=True, verbose=verbose)
+        time, frequency, confidence, _ = mycrepe.predict(audio, sr, model_path,
+                                                         viterbi=True, combined_viterbi=True, verbose=verbose)
         df = pd.DataFrame({"time": time, "frequency": frequency, "confidence": confidence},
                           columns=["time", "frequency", "confidence"])
         df.to_csv(output_f0_file, index=False)
@@ -142,7 +143,7 @@ def urmp_evaluate_all(instrument="vn", urmp_path=os.path.join(os.path.expanduser
 
 if __name__ == '__main__':
     new_model_name = 'original'
-
+    extract_pitch_with_model(model_name=new_model_name, verbose=0)
     urmp_extract_pitch_with_model(new_model_name, instrument="vn", verbose=1)
     urmp_evaluate_all(instrument="vn")
-    extract_pitch_with_model(model_name=new_model_name, verbose=0)
+

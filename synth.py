@@ -25,9 +25,8 @@ from time import time as taymit
 
 HOP_SIZE = 128
 SAMPLING_RATE = 44100
-WINDOW_SIZE = 2049
+WINDOW_SIZE = 2047  #int(2*(((1024/16000)*SAMPLING_RATE)//2))-1
 WINDOW_TYPE = 'flattop'
-
 
 
 def silence_segments_one_run(confidences, confidence_threshold, segment_len_th):
@@ -87,7 +86,7 @@ def interpolate_f0_to_sr(pitch_track_csv, audio, sr=SAMPLING_RATE, hop_size=HOP_
     c = interpolate.interp1d(pitch_track_csv["time"],
                              pitch_track_csv["confidence"],
                              kind="cubic", fill_value="extrapolate")
-    start_frame = int(np.floor((WINDOW_SIZE + 1) / 2))
+    start_frame = 0  # I was true at first! It starts from zero!! int(np.floor((WINDOW_SIZE + 1) / 2))
     end_frame = len(audio) - (len(audio) % hop_size) + start_frame
     time = np.array(range(start_frame, end_frame+1, hop_size)) / sr
     pitch_track_np = f(time)
@@ -207,12 +206,13 @@ def analyze_file(filename, path_folder_audio, path_folder_f0, path_folder_anal, 
     return
 
 
-def analyze_folder(path_folder_audio, path_folder_f0, path_folder_anal, n_jobs=4):
+def analyze_folder(path_folder_audio, path_folder_f0, path_folder_anal, confidence_threshold=0.9, n_jobs=4):
     if not os.path.exists(path_folder_anal):
         # Create a new directory because it does not exist
         os.makedirs(path_folder_anal)
     Parallel(n_jobs=n_jobs)(delayed(analyze_file)(
-        file, path_folder_audio, path_folder_f0, path_folder_anal) for file in sorted(os.listdir(path_folder_audio)))
+        a_file, path_folder_audio, path_folder_f0, path_folder_anal, confidence_threshold=confidence_threshold) for
+                            a_file in sorted(os.listdir(path_folder_audio)))
     return
 
 
@@ -242,7 +242,7 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
         hfreqs, hmags, hphases, f0 = supress_timbre_anomalies(instrument_detector, hfreqs, hmags, hphases, f0s,
                                                               instrument_detector_normalize)
     hfreqs, hmags, hphases, f0s = refine_harmonics_twm(hfreqs, hmags, hphases,
-                                                       f0s, f0et=5.0, f0_refinement_range_cents=15,
+                                                       f0s, f0et=5.0, f0_refinement_range_cents=0,
                                                        min_voiced_segment_ms=voiced_th_ms)
     time_refine = taymit()
     post_anal_coverage = sum(f0s > 0) / len(f0s)
@@ -282,9 +282,9 @@ def process_folder(path_folder_audio, path_folder_f0, path_folder_synth, pitch_s
         # Create a new directory because it does not exist 
         os.makedirs(path_folder_synth)
     Parallel(n_jobs=n_jobs)(delayed(process_file)(
-        file, path_folder_audio, path_folder_f0, path_folder_synth, pitch_shift=pitch_shift,
+        pr_file, path_folder_audio, path_folder_f0, path_folder_synth, pitch_shift=pitch_shift,
         instrument_detector=instrument_detector, instrument_detector_normalize=instrument_detector_normalize)
-                            for file in sorted(os.listdir(path_folder_audio)))
+                            for pr_file in sorted(os.listdir(path_folder_audio)))
     return
 
 
@@ -294,7 +294,7 @@ if __name__ == '__main__':
 
     instrument_model_method = "normalized"
     estimate_instrument_model = False
-    model = "firstRunFinal"
+    model = "original"
 
     if estimate_instrument_model:
         print("started instrument model estimation")
@@ -304,13 +304,14 @@ if __name__ == '__main__':
             analyze_folder(path_folder_audio=os.path.join(dataset_folder, name),
                            path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", model, name),
                            path_folder_anal=os.path.join(dataset_folder, "anal", name),
+                           confidence_threshold=0.8,
                            n_jobs=16)
         data = []
         for name in names:
             print("started processing the folder ", name)
-            path_folder_anal = os.path.join(dataset_folder, "anal", name)
-            for file in sorted(os.listdir(path_folder_anal)):
-                data.append(np.load(os.path.join(path_folder_anal, file)))
+            files_anal = os.path.join(dataset_folder, "anal", name)
+            for file in sorted(os.listdir(files_anal)):
+                data.append(np.load(os.path.join(files_anal, file)))
         data = np.vstack(data)
         print('data loaded')
         if instrument_model_method == "normalized":

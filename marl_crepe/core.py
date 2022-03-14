@@ -211,7 +211,7 @@ def get_activation(audio, sr, model_path, model_capacity='full', center=True, st
 
 
 def predict(audio, sr, model_path, model_capacity='full',
-            viterbi=False, center=True, step_size=10, verbose=1):
+            viterbi=False, combined_viterbi=False, center=True, step_size=10, verbose=1):
     """
     Perform pitch estimation on given audio
 
@@ -258,6 +258,25 @@ def predict(audio, sr, model_path, model_capacity='full',
         # NEW!! CONFIDENCE IS NO MORE THE MAX ACTIVATION! CORRECTED TO BE CALCULATED ALONG THE PATH!
         path, cents = to_viterbi_cents(activation)
         confidence = np.array([activation[i, path[i]] for i in range(len(activation))])
+        if combined_viterbi:
+            raw_confidence = activation.max(axis=1)
+            problems = np.logical_and(confidence < 0.2, raw_confidence > 0.5)
+            if any(problems):
+                problem_indices = np.nonzero(problems)[0]
+                for ind in problem_indices:
+                    cents[ind] = to_local_average_cents(activation[ind])
+                    confidence[ind] = raw_confidence[ind]
+                    # TODO add an octave filter
+            '''
+            if sum(problems):
+                problem_indices = np.nonzero(problems)[0] # since it is a tuple and we have one-dim
+                for ind in problem_indices:
+                    rc = to_local_average_cents(activation[ind])
+                    vc = cents[ind]
+
+                raw_cents = to_local_average_cents(activation)
+                non_octave =
+            '''
     else:
         cents = to_local_average_cents(activation)
         confidence = activation.max(axis=1)
