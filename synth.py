@@ -25,7 +25,9 @@ from time import time as taymit
 
 HOP_SIZE = 128
 SAMPLING_RATE = 44100
-WINDOW_SIZE = 1001
+WINDOW_SIZE = 2049
+WINDOW_TYPE = 'flattop'
+
 
 
 def silence_segments_one_run(confidences, confidence_threshold, segment_len_th):
@@ -96,7 +98,7 @@ def interpolate_f0_to_sr(pitch_track_csv, audio, sr=SAMPLING_RATE, hop_size=HOP_
 
 def anal(audio, f0, hop_size=HOP_SIZE, sr=SAMPLING_RATE):
     # Get harmonic content from audio using extracted pitch as reference
-    w = get_window('hanning', WINDOW_SIZE, fftbins=True)
+    w = get_window(WINDOW_TYPE, WINDOW_SIZE, fftbins=True)
     hfreq, hmag, hphase = harmonicModelAnal(
         x=audio,
         f0=f0,
@@ -134,13 +136,13 @@ def refine_harmonics_twm(hfreq, hmag, hphases, f0, f0et=5.0, f0_refinement_range
             else:
                 f0[frame] = 0
                 hfreq[frame] = 0
-                hmag[frame] = 0
+                hmag[frame] = -100
     
     min_voiced_segment_len = int(np.ceil((min_voiced_segment_ms/1000)/(HOP_SIZE/SAMPLING_RATE)))
     voiced = silence_segments_one_run(f0, 0, min_voiced_segment_len)
     f0[~voiced] = 0
     hfreq[~voiced] = 0
-    hmag[~voiced] = 0
+    hmag[~voiced] = -100
     hphases[~voiced] = 0
     return hfreq, hmag, hphases, f0
 
@@ -156,7 +158,7 @@ def supress_timbre_anomalies(instrument_detector, hfreq, hmag, hphase, f0, instr
     voiced = voiced > 0
     f0[~voiced] = 0
     hfreq[~voiced] = 0
-    hmag[~voiced] = 0
+    hmag[~voiced] = -100
     hphase[~voiced] = 0
     return hfreq, hmag, hphase, f0
 
@@ -188,7 +190,7 @@ def apply_pitch_filter(pitch_track_csv, min_chunk_size=20, median=True, confiden
     return pitch_track_csv
 
 
-def analyze_file(filename, path_folder_audio, path_folder_f0, path_folder_anal):
+def analyze_file(filename, path_folder_audio, path_folder_f0, path_folder_anal, confidence_threshold=0.9):
     time_start = taymit()
     audio = librosa.load(os.path.join(path_folder_audio, filename), sr=SAMPLING_RATE, mono=True)[0]
     f0s = pd.read_csv(os.path.join(path_folder_f0, filename[:-3] + "f0.csv"))
@@ -201,7 +203,7 @@ def analyze_file(filename, path_folder_audio, path_folder_f0, path_folder_anal):
     time = time[:len(hmags)]
     time_anal = taymit()
     print("anal {:s} took {:.3f}".format(filename, time_anal-time_load))
-    np.save(os.path.join(path_folder_anal, filename[:-3] + "npy"), hmags[conf > 0.9, :12])
+    np.save(os.path.join(path_folder_anal, filename[:-3] + "npy"), hmags[conf > confidence_threshold, :12])
     return
 
 
@@ -255,7 +257,7 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
               float_format='%.6f')
     if pitch_shift:
         sign = random.choice([-1, 1])
-        val = random.choice(range(1, 26))
+        val = random.choice(range(5, 56))
         pitch_shift_cents = sign * val
 
         alt_f0s = f0s * pow(2, (pitch_shift_cents / 1200))
@@ -315,9 +317,9 @@ if __name__ == '__main__':
             data = data+100
             data = data[data[:, 0] > 0]
             data = data/data[:, 0][:, None]
-        model = EllipticEnvelope().fit(data)
+        instrument_timbre_detector = EllipticEnvelope().fit(data)
         with open(os.path.join(dataset_folder, 'EllipticEnvelope_' + instrument_model_method + '.pkl'), 'wb') as outp:
-            pickle.dump(model, outp, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(instrument_timbre_detector, outp, pickle.HIGHEST_PROTOCOL)
         print("FINISHED INSTRUMENT MODEL ESTIMATION!!! \n\n\n\n\n\n\n\n NOW THE SYNTHESIS STARTS!!!")
 
     if instrument_model_method == "normalized":

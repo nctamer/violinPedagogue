@@ -56,15 +56,16 @@ def process_folder(path_folder_synth, path_folder_tfrecord, n_jobs=4):
         stem, path_folder_synth, path_folder_tfrecord) for stem in stems)
 
 
-names = ["L1", "L2", "L3", "L4", "L5", "L6"]
-dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
+if __name__ == '__main__':
+    names = ["L1", "L2", "L3", "L4", "L5", "L6"]
+    dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
 
-# '/home/nazif/violindataset/graded_repertoire/tfrecord/L1/S1_BochanKang_015_15. Minuet 3.RESYN.tfrecord'
-# PROBLEM!!
+    # '/home/nazif/violindataset/graded_repertoire/tfrecord/L1/S1_BochanKang_015_15. Minuet 3.RESYN.tfrecord'
+    # PROBLEM!!
 
-for name in names:
-    print("started processing the folder ", name)
+    for name in names:
+        print("started processing the folder ", name)
 
-    process_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
-                   path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord", name),
-                   n_jobs=16)
+        process_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
+                       path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord", name),
+                       n_jobs=16)

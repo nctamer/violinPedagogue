@@ -141,7 +141,7 @@ def urmp_evaluate_all(instrument="vn", urmp_path=os.path.join(os.path.expanduser
 
 
 if __name__ == '__main__':
-    new_model_name = 'shifted2000'
+    new_model_name = 'original'
 
     urmp_extract_pitch_with_model(new_model_name, instrument="vn", verbose=1)
     urmp_evaluate_all(instrument="vn")

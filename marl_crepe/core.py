@@ -147,8 +147,8 @@ def to_viterbi_cents(salience):
     observations = np.argmax(salience, axis=1)
     path = model.predict(observations.reshape(-1, 1), [len(observations)])
 
-    return np.array([to_local_average_cents(salience[i, :], path[i]) for i in
-                     range(len(observations))])
+    return path, np.array([to_local_average_cents(salience[i, :], path[i]) for i in
+                           range(len(observations))])
 
 
 def get_activation(audio, sr, model_path, model_capacity='full', center=True, step_size=10,
@@ -253,12 +253,14 @@ def predict(audio, sr, model_path, model_capacity='full',
     activation = get_activation(audio, sr, model_path, model_capacity=model_capacity,
                                 center=center, step_size=step_size,
                                 verbose=verbose)
-    confidence = activation.max(axis=1)
 
     if viterbi:
-        cents = to_viterbi_cents(activation)
+        # NEW!! CONFIDENCE IS NO MORE THE MAX ACTIVATION! CORRECTED TO BE CALCULATED ALONG THE PATH!
+        path, cents = to_viterbi_cents(activation)
+        confidence = np.array([activation[i, path[i]] for i in range(len(activation))])
     else:
         cents = to_local_average_cents(activation)
+        confidence = activation.max(axis=1)
 
     frequency = 10 * 2 ** (cents / 1200)
     frequency[np.isnan(frequency)] = 0
