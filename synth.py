@@ -25,8 +25,8 @@ from time import time as taymit
 
 HOP_SIZE = 128
 SAMPLING_RATE = 44100
-WINDOW_SIZE = 2047  #int(2*(((1024/16000)*SAMPLING_RATE)//2))-1
-WINDOW_TYPE = 'flattop'
+WINDOW_SIZE = 1025  #int(2*(((1024/16000)*SAMPLING_RATE)//2))-1
+WINDOW_TYPE = 'hanning'
 
 
 def silence_segments_one_run(confidences, confidence_threshold, segment_len_th):
@@ -70,10 +70,28 @@ def silence_unvoiced_segments(pitch_track_csv, low_confidence_threshold=0.2,
     unvoiced_ranges = np.vstack([ranges[:-1, 1], ranges[1:, 0]]).T
     for unvoiced_boundary in unvoiced_ranges:
         # we don't want small unvoiced zones. Check if they are acceptable with a more favorable mean thresholding
-        if np.diff(unvoiced_boundary) < voiced_th:
+        len_unvoiced = np.diff(unvoiced_boundary)[0]
+        if len_unvoiced < voiced_th:
             avg_convidence = pitch_track_csv.loc[unvoiced_boundary[0]:unvoiced_boundary[1], "confidence"].mean()
             if avg_convidence > low_confidence_threshold:
                 voiced[unvoiced_boundary[0]:unvoiced_boundary[1]] = True
+            elif (len_unvoiced < 5) and (unvoiced_boundary[0] > 3) and (unvoiced_boundary[-1] < len(pitch_track_csv)-3):
+                past_voiced = pitch_track_csv.loc[unvoiced_boundary[0]-3:unvoiced_boundary[0]-1]
+                next_voiced = pitch_track_csv.loc[unvoiced_boundary[1]:unvoiced_boundary[1]+2]
+                past_conf = past_voiced["confidence"].mean()
+                next_conf = next_voiced["confidence"].mean()
+                if past_conf > next_conf:
+                    if past_conf > low_confidence_threshold:
+                        pitch_track_csv.loc[unvoiced_boundary[0]:unvoiced_boundary[1], "frequency"] =\
+                            past_voiced["frequency"].median()
+                        pitch_track_csv.loc[unvoiced_boundary[0]:unvoiced_boundary[1], "confidence"] = past_conf
+                        voiced[unvoiced_boundary[0]:unvoiced_boundary[1]] = True
+                else:
+                    if next_conf > low_confidence_threshold:
+                        pitch_track_csv.loc[unvoiced_boundary[0]:unvoiced_boundary[1], "frequency"] =\
+                            next_voiced["frequency"].median()
+                        pitch_track_csv.loc[unvoiced_boundary[0]:unvoiced_boundary[1], "confidence"] = next_conf
+                        voiced[unvoiced_boundary[0]:unvoiced_boundary[1]] = True
 
     pitch_track_csv.loc[~voiced, "frequency"] = 0
     return pitch_track_csv
@@ -82,10 +100,10 @@ def silence_unvoiced_segments(pitch_track_csv, low_confidence_threshold=0.2,
 def interpolate_f0_to_sr(pitch_track_csv, audio, sr=SAMPLING_RATE, hop_size=HOP_SIZE):
     f = interpolate.interp1d(pitch_track_csv["time"],
                              pitch_track_csv["frequency"],
-                             kind="cubic", fill_value="extrapolate")
+                             kind="nearest", fill_value="extrapolate")
     c = interpolate.interp1d(pitch_track_csv["time"],
                              pitch_track_csv["confidence"],
-                             kind="cubic", fill_value="extrapolate")
+                             kind="nearest", fill_value="extrapolate")
     start_frame = 0  # I was true at first! It starts from zero!! int(np.floor((WINDOW_SIZE + 1) / 2))
     end_frame = len(audio) - (len(audio) % hop_size) + start_frame
     time = np.array(range(start_frame, end_frame+1, hop_size)) / sr
@@ -224,11 +242,12 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
     time_start = taymit()
     audio = librosa.load(os.path.join(path_folder_audio, filename), sr=SAMPLING_RATE, mono=True)[0]
     f0s = pd.read_csv(os.path.join(path_folder_f0, filename[:-3] + "f0.csv"))
+    f0s["confidence"] = f0s["confidence"].fillna(0)
     pre_anal_coverage = f0s['confidence'] > th_lc
     pre_anal_coverage = sum(pre_anal_coverage)/len(pre_anal_coverage)
     f0s = silence_unvoiced_segments(f0s, low_confidence_threshold=th_lc, high_confidence_threshold=th_hc,
                                     min_voiced_segment_ms=voiced_th_ms)
-    f0s = apply_pitch_filter(f0s, min_chunk_size=21, median=True, confidence_threshold=th_hc)
+    # f0s = apply_pitch_filter(f0s, min_chunk_size=21, median=True, confidence_threshold=th_hc)
     f0s, conf, time = interpolate_f0_to_sr(f0s, audio)
     time_load = taymit()
     print("loading {:s} took {:.3f}".format(filename, time_load-time_start))
@@ -242,7 +261,7 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
         hfreqs, hmags, hphases, f0 = supress_timbre_anomalies(instrument_detector, hfreqs, hmags, hphases, f0s,
                                                               instrument_detector_normalize)
     hfreqs, hmags, hphases, f0s = refine_harmonics_twm(hfreqs, hmags, hphases,
-                                                       f0s, f0et=5.0, f0_refinement_range_cents=0,
+                                                       f0s, f0et=5.0, f0_refinement_range_cents=16,
                                                        min_voiced_segment_ms=voiced_th_ms)
     time_refine = taymit()
     post_anal_coverage = sum(f0s > 0) / len(f0s)
@@ -339,7 +358,7 @@ if __name__ == '__main__':
                        path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                        instrument_detector=instrument_timbre_detector,
                        instrument_detector_normalize=instrument_model_normalize,
-                       pitch_shift=True, n_jobs=16)
+                       pitch_shift=True, n_jobs=1)
         synth2tfrecord_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                               path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord", name),
                               n_jobs=16)
