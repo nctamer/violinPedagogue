@@ -358,7 +358,7 @@ if __name__ == '__main__':
                        path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                        instrument_detector=instrument_timbre_detector,
                        instrument_detector_normalize=instrument_model_normalize,
-                       pitch_shift=True, n_jobs=1)
+                       pitch_shift=True, n_jobs=16)
         synth2tfrecord_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                               path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord", name),
                               n_jobs=16)
