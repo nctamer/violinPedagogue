@@ -32,7 +32,7 @@ def predict_from_file_list(audio_files, output_f0_files, model_path, verbose=1):
         output_f0_file = output_f0_files[index]
         audio, sr = librosa.load(audio_file, mono=True)
         time, frequency, confidence, _ = mycrepe.predict(audio, sr, model_path,
-                                                         viterbi=True, combined_viterbi=True, verbose=verbose)
+                                                         viterbi=True, combined_viterbi=False, verbose=verbose)
         df = pd.DataFrame({"time": time, "frequency": frequency, "confidence": confidence},
                           columns=["time", "frequency", "confidence"])
         df.to_csv(output_f0_file, index=False)

@@ -1,3 +1,4 @@
+import copy
 import os
 import numpy as np
 import librosa
@@ -65,6 +66,12 @@ def silence_unvoiced_segments(pitch_track_csv, low_confidence_threshold=0.2,
     
     # we accept the intersection of these two zones
     voiced = np.logical_and(smooth_voiced, hard_voiced)
+
+    smoothened_pitch = copy.deepcopy(pitch_track_csv["frequency"])
+    smoothened_pitch[~voiced] = np.nan
+    smoothened_pitch.fillna(smoothened_pitch.rolling(window=15, min_periods=8).median(), inplace=True)
+
+    # medfilt(pitch_track_csv["frequency"], kernel_size=21)
     absdiff = np.abs(np.diff(np.concatenate(([False], voiced, [False]))))
     ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
     unvoiced_ranges = np.vstack([ranges[:-1, 1], ranges[1:, 0]]).T
@@ -72,10 +79,15 @@ def silence_unvoiced_segments(pitch_track_csv, low_confidence_threshold=0.2,
         # we don't want small unvoiced zones. Check if they are acceptable with a more favorable mean thresholding
         len_unvoiced = np.diff(unvoiced_boundary)[0]
         if len_unvoiced < voiced_th:
-            avg_convidence = pitch_track_csv.loc[unvoiced_boundary[0]:unvoiced_boundary[1], "confidence"].mean()
-            if avg_convidence > low_confidence_threshold:
+            avg_confidence = pitch_track_csv.loc[unvoiced_boundary[0]:unvoiced_boundary[1], "confidence"].mean()
+            if avg_confidence > low_confidence_threshold:
                 voiced[unvoiced_boundary[0]:unvoiced_boundary[1]] = True
-            elif (len_unvoiced < 5) and (unvoiced_boundary[0] > 3) and (unvoiced_boundary[-1] < len(pitch_track_csv)-3):
+            elif len_unvoiced < 8:
+                # and (unvoiced_boundary[0] > 3) and (unvoiced_boundary[-1] < len(pitch_track_csv)-3):
+                pitch_track_csv.loc[unvoiced_boundary[0]:unvoiced_boundary[1], "frequency"] = \
+                    smoothened_pitch[unvoiced_boundary[0]:unvoiced_boundary[1]]
+                voiced[unvoiced_boundary[0]:unvoiced_boundary[1]] = True
+                """
                 past_voiced = pitch_track_csv.loc[unvoiced_boundary[0]-3:unvoiced_boundary[0]-1]
                 next_voiced = pitch_track_csv.loc[unvoiced_boundary[1]:unvoiced_boundary[1]+2]
                 past_conf = past_voiced["confidence"].mean()
@@ -92,8 +104,10 @@ def silence_unvoiced_segments(pitch_track_csv, low_confidence_threshold=0.2,
                             next_voiced["frequency"].median()
                         pitch_track_csv.loc[unvoiced_boundary[0]:unvoiced_boundary[1], "confidence"] = next_conf
                         voiced[unvoiced_boundary[0]:unvoiced_boundary[1]] = True
+                """
 
     pitch_track_csv.loc[~voiced, "frequency"] = 0
+    pitch_track_csv["frequency"] = pitch_track_csv["frequency"].fillna(0)
     return pitch_track_csv
 
 
@@ -113,7 +127,7 @@ def interpolate_f0_to_sr(pitch_track_csv, audio, sr=SAMPLING_RATE, hop_size=HOP_
     return pitch_track_np, confidence_np, time
 
 
-def anal(audio, f0, hop_size=HOP_SIZE, sr=SAMPLING_RATE):
+def anal(audio, f0, n_harmonics=30, hop_size=HOP_SIZE, sr=SAMPLING_RATE):
     # Get harmonic content from audio using extracted pitch as reference
     w = get_window(WINDOW_TYPE, WINDOW_SIZE, fftbins=True)
     hfreq, hmag, hphase = harmonicModelAnal(
@@ -124,7 +138,7 @@ def anal(audio, f0, hop_size=HOP_SIZE, sr=SAMPLING_RATE):
         H=hop_size,
         N=2048,
         t=-90,
-        nH=30,
+        nH=n_harmonics,
         harmDevSlope=0.001,
         minSineDur=0.001
     )
@@ -214,13 +228,21 @@ def analyze_file(filename, path_folder_audio, path_folder_f0, path_folder_anal, 
     f0s, conf, time = interpolate_f0_to_sr(f0s, audio)
     time_load = taymit()
     print("loading {:s} took {:.3f}".format(filename, time_load-time_start))
-    hfreqs, hmags, _ = anal(audio, f0s)
+    hfreqs, hmags, _ = anal(audio, f0s, n_harmonics=12)
     f0s = f0s[:len(hmags)]
     conf = conf[:len(hmags)]
     time = time[:len(hmags)]
     time_anal = taymit()
-    print("anal {:s} took {:.3f}".format(filename, time_anal-time_load))
-    np.save(os.path.join(path_folder_anal, filename[:-3] + "npy"), hmags[conf > confidence_threshold, :12])
+
+    conf_bool = conf > confidence_threshold
+    valid_f0_bool = f0s > 180  # lowest note on violin is G3 = 196 hz, so threshold with sth close to the lowest note
+    valid_hmag_bool = (hmags > -100).sum(axis=1) > 3  # at least three harmonics
+    valid_bool = np.logical_and(conf_bool, valid_f0_bool, valid_hmag_bool)
+
+    print("anal {:s} took {:.3f}. coverage: {:.3f}".format(filename, time_anal-time_load,
+                                                           sum(valid_bool)/len(valid_bool)))
+    np.savez_compressed(os.path.join(path_folder_anal, filename[:-3] + "npz"),
+                        f0=f0s[valid_bool], hmag=hmags[valid_bool, :12])
     return
 
 
@@ -251,7 +273,7 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
     f0s, conf, time = interpolate_f0_to_sr(f0s, audio)
     time_load = taymit()
     print("loading {:s} took {:.3f}".format(filename, time_load-time_start))
-    hfreqs, hmags, hphases = anal(audio, f0s)
+    hfreqs, hmags, hphases = anal(audio, f0s, n_harmonics=36)
     f0s = f0s[:len(hmags)]
     conf = conf[:len(hmags)]
     time = time[:len(hmags)]
@@ -276,7 +298,7 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
               float_format='%.6f')
     if pitch_shift:
         sign = random.choice([-1, 1])
-        val = random.choice(range(5, 56))
+        val = random.choice(range(5, 50))
         pitch_shift_cents = sign * val
 
         alt_f0s = f0s * pow(2, (pitch_shift_cents / 1200))
@@ -309,6 +331,7 @@ def process_folder(path_folder_audio, path_folder_f0, path_folder_synth, pitch_s
 
 if __name__ == '__main__':
     names = ["L1", "L2", "L3", "L4", "L5", "L6"]
+
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
 
     instrument_model_method = "normalized"
@@ -323,16 +346,27 @@ if __name__ == '__main__':
             analyze_folder(path_folder_audio=os.path.join(dataset_folder, name),
                            path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", model, name),
                            path_folder_anal=os.path.join(dataset_folder, "anal", name),
-                           confidence_threshold=0.8,
+                           confidence_threshold=0.9,
                            n_jobs=16)
-        data = []
+        data, pitch_content = [], []
         for name in names:
             print("started processing the folder ", name)
             files_anal = os.path.join(dataset_folder, "anal", name)
             for file in sorted(os.listdir(files_anal)):
-                data.append(np.load(os.path.join(files_anal, file)))
+                file_content = np.load(os.path.join(files_anal, file))
+                data.append(file_content['hmag'])
+                pitch_content.append(file_content['f0'])
+
         data = np.vstack(data)
-        print('data loaded')
+        pitch_content = np.hstack(pitch_content)
+        pitch_bins = np.linspace(150, 1000, 18)
+        pitch_hist, _ = np.histogram(pitch_content, bins=pitch_bins)
+        pitch_dist = pitch_hist / len(data)
+
+        print("Pitch distribution for the instrument model:")
+        for f, p in zip(pitch_bins, pitch_dist):
+            print("%4d" % f, "*" * int(p * 100))
+
         if instrument_model_method == "normalized":
             data = data+100
             data = data[data[:, 0] > 0]
@@ -358,7 +392,7 @@ if __name__ == '__main__':
                        path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                        instrument_detector=instrument_timbre_detector,
                        instrument_detector_normalize=instrument_model_normalize,
-                       pitch_shift=True, n_jobs=16)
+                       pitch_shift=True, n_jobs=8)
         synth2tfrecord_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                               path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord", name),
                               n_jobs=16)

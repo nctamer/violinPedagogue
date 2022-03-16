@@ -17,7 +17,7 @@ rm \[Suzuki\ Violin\ Book\ 2\]\ All\ Songs\,\ 스즈키\ 바이올린\ 2권\ \(�
 ### GRADE 3 ###
 yt-dlp  https://www.youtube.com/watch?v=IgnEw3E4_L8  -x --audio-format mp3 --audio-quality 0 --split-chapters --remove-chapters "Suzuki Violin School" --remove-chapters "6.Gavotte"  --remove-chapters "7.Bourrée"  -o "chapter:L3/S3_BochanKang_%(section_number)03d_%(section_title)s.%(ext)s"
 yt-dlp  https://www.youtube.com/watch?v=n30OtrMWkrE  -x --audio-format mp3 --audio-quality 0 --split-chapters --remove-chapters "3-6 Gavotte in DM" --remove-chapters "3-7 Bourree" -o "chapter:L3/S3_YeraLee_%(section_number)03d_%(section_title)s.%(ext)s"
-yt-dlp --yes-playlist --playlist-items 1-8,10-12 https://youtube.com/playlist?list=PLMFLV1svOUsSEHvPoY64L1machR4j1mrN -x --audio-format mp3 --audio-quality 0   -o "L3/S2_MyriadMSDA_%(playlist_index)03d_%(title)s.%(ext)s"
+yt-dlp --yes-playlist --playlist-items 1-8,10-12 https://youtube.com/playlist?list=PLMFLV1svOUsSEHvPoY64L1machR4j1mrN -x --audio-format mp3 --audio-quality 0   -o "L3/S3_MyriadMSDA_%(playlist_index)03d_%(title)s.%(ext)s"
 rm Suzuki\ Violin\ School\ Book\ Vol.\ 3\ Full\ Version\ @보찬TV\ \[IgnEw3E4_L8\].mp3 
 rm \[Suzuki\ Violin\ School\ Book\ 3\]\ ALL\ Songs\,\ 스즈키\ 바이올린\ 3권\ 전곡\ 수록\ \[n30OtrMWkrE\].mp3
 yt-dlp --yes-playlist --playlist-items 1-12,15-17 https://www.youtube.com/playlist?list=OLAK5uy_mESjCL-XUZUHoO2T_uXGd-q4YYJhgbLOo -x --audio-format mp3 --audio-quality 0   -o "L3/Wohlfahrt45_JPRafferty_%(playlist_index)03d_%(title)s.%(ext)s"
