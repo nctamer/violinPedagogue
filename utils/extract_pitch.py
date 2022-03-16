@@ -27,12 +27,12 @@ def accuracies(true_cents, predicted_cents, cent_tolerance=50):
     return rpa, rca
 
 
-def predict_from_file_list(audio_files, output_f0_files, model_path, verbose=1):
+def predict_from_file_list(audio_files, output_f0_files, model_path, viterbi=True, verbose=1):
     for index, audio_file in enumerate(audio_files):
         output_f0_file = output_f0_files[index]
         audio, sr = librosa.load(audio_file, mono=True)
         time, frequency, confidence, _ = mycrepe.predict(audio, sr, model_path,
-                                                         viterbi=True, combined_viterbi=False, verbose=verbose)
+                                                         viterbi=viterbi, combined_viterbi=False, verbose=verbose)
         df = pd.DataFrame({"time": time, "frequency": frequency, "confidence": confidence},
                           columns=["time", "frequency", "confidence"])
         df.to_csv(output_f0_file, index=False)
@@ -40,7 +40,8 @@ def predict_from_file_list(audio_files, output_f0_files, model_path, verbose=1):
 
 
 def urmp_extract_pitch_with_model(model_name, instrument='vn',
-                                  urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP"), verbose=1):
+                                  urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP"),
+                                  viterbi=False, verbose=1):
     dataset_folder = os.path.join(urmp_path, "Dataset")
     out_folder = os.path.join(urmp_path, 'pitch_tracks', model_name)
 
@@ -59,11 +60,11 @@ def urmp_extract_pitch_with_model(model_name, instrument='vn',
                 output_f0_files.extend(
                     [os.path.join(out_folder, track, os.path.basename(_)[:-3] + "f0.csv") for _ in new_audio_files])
 
-    predict_from_file_list(audio_files, output_f0_files, model_path, verbose=verbose)
+    predict_from_file_list(audio_files, output_f0_files, model_path, viterbi=viterbi, verbose=verbose)
     return
 
 
-def extract_pitch_with_model(model_name, verbose=1):
+def extract_pitch_with_model(model_name, viterbi=True, verbose=1):
     FOLDER = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
     OUT_FOLDER = os.path.join(FOLDER, 'pitch_tracks', model_name)
     AUDIO_FORMAT = ".mp3"
@@ -81,7 +82,7 @@ def extract_pitch_with_model(model_name, verbose=1):
         output_f0_files.extend(
             [os.path.join(OUT_FOLDER, grade, os.path.basename(_)[:-3] + "f0.csv") for _ in new_audio_files])
 
-    predict_from_file_list(audio_files, output_f0_files, model_path, verbose=verbose)
+    predict_from_file_list(audio_files, output_f0_files, model_path, viterbi=viterbi, verbose=verbose)
     return
 
 
@@ -143,7 +144,7 @@ def urmp_evaluate_all(instrument="vn", urmp_path=os.path.join(os.path.expanduser
 
 if __name__ == '__main__':
     new_model_name = 'original'
-    extract_pitch_with_model(model_name=new_model_name, verbose=0)
-    urmp_extract_pitch_with_model(new_model_name, instrument="vn", verbose=1)
+    extract_pitch_with_model(model_name=new_model_name, viterbi=True, verbose=0)
+    urmp_extract_pitch_with_model(new_model_name, instrument="vn", viterbi=False, verbose=1)
     urmp_evaluate_all(instrument="vn")
 
