@@ -27,15 +27,19 @@ def accuracies(true_cents, predicted_cents, cent_tolerance=50):
     return rpa, rca
 
 
-def predict_from_file_list(audio_files, output_f0_files, model_path, viterbi=True, verbose=1):
+def predict_from_file_list(audio_files, output_f0_files, model_path, activation_files=None, viterbi=True, verbose=1):
     for index, audio_file in enumerate(audio_files):
         output_f0_file = output_f0_files[index]
         audio, sr = librosa.load(audio_file, mono=True)
-        time, frequency, confidence, _ = mycrepe.predict(audio, sr, model_path,
-                                                         viterbi=viterbi, combined_viterbi=False, verbose=verbose)
+        time, frequency, confidence, activation = mycrepe.predict(audio, sr, model_path,
+                                                                  viterbi=viterbi, combined_viterbi=False,
+                                                                  verbose=verbose)
         df = pd.DataFrame({"time": time, "frequency": frequency, "confidence": confidence},
                           columns=["time", "frequency", "confidence"])
         df.to_csv(output_f0_file, index=False)
+        if activation_files:
+            output_activation_file = activation_files[index]
+            np.save(output_activation_file, activation)
     return
 
 
@@ -64,7 +68,7 @@ def urmp_extract_pitch_with_model(model_name, instrument='vn',
     return
 
 
-def extract_pitch_with_model(model_name, viterbi=True, verbose=1):
+def extract_pitch_with_model(model_name, viterbi=True, save_activation=False, verbose=1):
     FOLDER = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
     OUT_FOLDER = os.path.join(FOLDER, 'pitch_tracks', model_name)
     AUDIO_FORMAT = ".mp3"
@@ -72,7 +76,8 @@ def extract_pitch_with_model(model_name, viterbi=True, verbose=1):
 
     model_path = os.path.join('..', 'crepe', 'models', model_name + '.h5')
 
-    audio_files, output_f0_files = [], []
+    audio_files, output_f0_files, activation_files = [], [], []
+    activation_folder = os.path.join(FOLDER, 'activations', model_name)
     for grade in GRADES:
         if not os.path.exists(os.path.join(OUT_FOLDER, grade)):
             # Create a new directory because it does not exist
@@ -81,8 +86,15 @@ def extract_pitch_with_model(model_name, viterbi=True, verbose=1):
         audio_files.extend(new_audio_files)
         output_f0_files.extend(
             [os.path.join(OUT_FOLDER, grade, os.path.basename(_)[:-3] + "f0.csv") for _ in new_audio_files])
+        if save_activation:
+            if not os.path.exists(os.path.join(activation_folder, grade)):
+                # Create a new directory because it does not exist
+                os.makedirs(os.path.join(activation_folder, grade))
+                activation_files.extend(
+                    [os.path.join(activation_folder, grade, os.path.basename(_)[:-3] + "npy") for _ in new_audio_files])
 
-    predict_from_file_list(audio_files, output_f0_files, model_path, viterbi=viterbi, verbose=verbose)
+    predict_from_file_list(audio_files, output_f0_files, model_path,
+                           activation_files=activation_files, viterbi=viterbi, verbose=verbose)
     return
 
 
@@ -143,8 +155,13 @@ def urmp_evaluate_all(instrument="vn", urmp_path=os.path.join(os.path.expanduser
 
 
 if __name__ == '__main__':
-    new_model_name = 'original'
-    extract_pitch_with_model(model_name=new_model_name, viterbi=True, verbose=0)
-    urmp_extract_pitch_with_model(new_model_name, instrument="vn", viterbi=False, verbose=1)
+    new_model_names = ['original', 'cleaned1000']
+    for new_model_name in new_model_names:
+        extract_pitch_with_model(model_name=new_model_name, save_activation=True, viterbi=True, verbose=0)
+        urmp_extract_pitch_with_model(new_model_name, instrument="vn", viterbi=False, verbose=1)
     urmp_evaluate_all(instrument="vn")
+    #for new_model_name in new_model_names:
+    #    extract_pitch_with_model(model_name=new_model_name, save_activation=True, viterbi=True, verbose=0)
+
+
 
