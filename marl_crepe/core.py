@@ -6,6 +6,7 @@ import re
 import sys
 
 from scipy.io import wavfile
+from scipy.ndimage import gaussian_filter1d
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
 
@@ -128,8 +129,7 @@ def to_viterbi_cents(salience):
     starting = np.ones(360) / 360
 
     # transition probabilities inducing continuous pitch
-    xx, yy = np.meshgrid(range(360), range(360))
-    transition = np.maximum(12 - abs(xx - yy), 0)
+    transition = gaussian_filter1d(np.eye(360), 30) + gaussian_filter1d(np.eye(360), 2)
     transition = transition / np.sum(transition, axis=1)[:, None]
 
     # emission probability = fixed probability for self, evenly distribute the
