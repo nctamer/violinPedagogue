@@ -32,8 +32,8 @@ def to_viterbi_cents(salience):
     #xx, yy = np.meshgrid(range(360), range(360))
     #transition = np.maximum(12 - abs(xx - yy), 0)
     #transition = transition / np.sum(transition, axis=1)[:, None]
-    transition2 = gaussian_filter1d(np.eye(360), 30) + gaussian_filter1d(np.eye(360), 2)
-    transition2 = transition2 / np.sum(transition2, axis=1)[:, None]
+    transition = gaussian_filter1d(np.eye(360), 30) + gaussian_filter1d(np.eye(360), 2)
+    transition = transition / np.sum(transition, axis=1)[:, None]
 
 
 
