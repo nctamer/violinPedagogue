@@ -57,25 +57,28 @@ def to_viterbi_cents(salience):
 
 
 if __name__ == '__main__':
-    plt.tight_layout(pad=0.05)
-    #fig = plt.figure(figsize=)
-    fig, axes = plt.subplots(nrows=2, ncols=1, gridspec_kw={'wspace': 0, 'hspace': 0.2}, squeeze=True, sharex=True)
-    fig.set_size_inches([280, 7])
-    for i, model_name in enumerate(['original', 'cleaned1200']):
-        track = 'Kreutzer_BernardChevalier_030_Etude #30 violin by Rodolphe Kreutzer (1766-1831)'
-        folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
-        activations = os.path.join(folder, 'activations', model_name, 'L6', track + '.npy')
-        activations = np.load(activations)
-        p, c = to_viterbi_cents(activations)
-        salience = np.flip(activations, axis=1)
-        inferno = matplotlib.cm.get_cmap('inferno')
-        image = inferno(salience.transpose())
-        #plt.imshow(image[:205,45:750,:])
 
-        #axes.append(fig.add_subplot(2, 1, i + 1))
-        axes[i].set_title(model_name)
-        #axes[i].axis("off")
-        axes[i].imshow(image[:205, 45:, :])
-    #plt.gca().set_position((0, 0, 1, 1))
-    plt.show()
+    for track in ['Kreutzer_BernardChevalier_030_Etude #30 violin by Rodolphe Kreutzer (1766-1831)',
+                  'Kreutzer_BochanKang_029_Kreutzer Violin Etude No. 30 크로이쩌 바이올린 에튀드 30번 @ 보찬TV',
+                  "Kreutzer_SunKim_030_Études ou caprices - No. 30 in B-Flat Major. Moderato"]:
+        plt.tight_layout(pad=0.05)
+        # fig = plt.figure(figsize=)
+        fig, axes = plt.subplots(nrows=2, ncols=1, gridspec_kw={'wspace': 0, 'hspace': 0.2}, squeeze=True, sharex=True)
+        fig.set_size_inches([280, 7])
+        for i, model_name in enumerate(['original', 'cleaned1200']):
+            folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
+            activations = os.path.join(folder, 'activations', model_name, 'L6', track + '.npy')
+            activations = np.load(activations)
+            #p, c = to_viterbi_cents(activations)
+            salience = np.flip(activations, axis=1)
+            inferno = matplotlib.cm.get_cmap('inferno')
+            image = inferno(salience.transpose())
+            #plt.imshow(image[:205,45:750,:])
+
+            #axes.append(fig.add_subplot(2, 1, i + 1))
+            axes[i].set_title(model_name+track)
+            #axes[i].axis("off")
+            axes[i].imshow(image[:205, 45:, :])
+        #plt.gca().set_position((0, 0, 1, 1))
+        fig.show()
     print('a')

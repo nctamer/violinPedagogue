@@ -273,7 +273,7 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
     f0s, conf, time = interpolate_f0_to_sr(f0s, audio)
     time_load = taymit()
     print("loading {:s} took {:.3f}".format(filename, time_load-time_start))
-    hfreqs, hmags, hphases = anal(audio, f0s, n_harmonics=36)
+    hfreqs, hmags, hphases = anal(audio, f0s, n_harmonics=40)
     f0s = f0s[:len(hmags)]
     conf = conf[:len(hmags)]
     time = time[:len(hmags)]
@@ -335,19 +335,21 @@ if __name__ == '__main__':
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
 
     instrument_model_method = "normalized"
-    estimate_instrument_model = False
-    model = "original"
+    estimate_instrument_model = True
+    inst_model_use_existing_anal_files = True  #todo just a workaround for the memory leak!
+    model = "iter1"
 
     if estimate_instrument_model:
         print("started instrument model estimation")
         # combine instrument model estimation with the synthesis. The analysis for the instrument estimation takes
         # a long while, so only do it when really needed!
-        for name in names:
-            analyze_folder(path_folder_audio=os.path.join(dataset_folder, name),
-                           path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", model, name),
-                           path_folder_anal=os.path.join(dataset_folder, "anal", name),
-                           confidence_threshold=0.9,
-                           n_jobs=16)
+        if not inst_model_use_existing_anal_files:
+            for name in names:
+                analyze_folder(path_folder_audio=os.path.join(dataset_folder, name),
+                               path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", model, name),
+                               path_folder_anal=os.path.join(dataset_folder, "anal", name),
+                               confidence_threshold=0.9,
+                               n_jobs=16)
         data, pitch_content = [], []
         for name in names:
             print("started processing the folder ", name)
@@ -371,6 +373,7 @@ if __name__ == '__main__':
             data = data+100
             data = data[data[:, 0] > 0]
             data = data/data[:, 0][:, None]
+        print('training instrument model')
         instrument_timbre_detector = EllipticEnvelope().fit(data)
         with open(os.path.join(dataset_folder, 'EllipticEnvelope_' + instrument_model_method + '.pkl'), 'wb') as outp:
             pickle.dump(instrument_timbre_detector, outp, pickle.HIGHEST_PROTOCOL)
