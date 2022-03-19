@@ -98,6 +98,16 @@ def extract_pitch_with_model(model_name, viterbi=True, save_activation=False, ve
     return
 
 
+def single_file_extract_pitch_with_model(audio_file, output_f0_file=None, model_name='original',
+                                         viterbi=True, verbose=1):
+    if not output_f0_file:
+        output_f0_file = audio_file[:-3] + 'f0.csv'
+    model_path = os.path.join('..', 'crepe', 'models', model_name + '.h5')
+    predict_from_file_list(audio_files=[audio_file], output_f0_files=[output_f0_file], model_path=model_path,
+                           viterbi=viterbi, verbose=verbose)
+    return
+
+
 def evaluate(predicted_file_list, ground_truth_file_list):
     cents_predicted, cents_ground = [], []
     for i, predicted_i in enumerate(predicted_file_list):
@@ -163,4 +173,6 @@ if __name__ == '__main__':
     #    extract_pitch_with_model(model_name=new_model_name, save_activation=True, viterbi=True, verbose=0)
 
 
+    # os.chdir(os.getcwd()+'/utils')
+    # single_file_extract_pitch_with_model('kurdili_solo_violin.wav', model_name='original')
 
