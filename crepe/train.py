@@ -103,7 +103,7 @@ class PitchAccuracyCallback(keras.callbacks.Callback):
 
 def main():
     names = ["L1", "L2", "L3", "L4", "L5", "L6"]
-    dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire", "tfrecord")
+    dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire", "tfrecord_flattop")
     train_set, val_sets = prepare_datasets(dataset_folder, names)
     val_data = Dataset.concat([Dataset(*val_set) for val_set in val_sets]).collect()
 
