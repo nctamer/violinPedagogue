@@ -165,7 +165,7 @@ def urmp_evaluate_all(instrument="vn", urmp_path=os.path.join(os.path.expanduser
 
 
 if __name__ == '__main__':
-    new_model_name = 'iter1'
+    new_model_name = 'iter2'
     urmp_extract_pitch_with_model(new_model_name, instrument="vn", viterbi=False, verbose=1)
     urmp_evaluate_all(instrument="vn")
     extract_pitch_with_model(model_name=new_model_name, save_activation=True, viterbi=True, verbose=0)

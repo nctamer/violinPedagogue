@@ -13,16 +13,17 @@ dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_
 records = []
 for grade_name in sorted(os.listdir(dataset_folder)):
     grade_folder = os.path.join(dataset_folder, grade_name)
-    for file in sorted(os.listdir(grade_folder)):
-        if file.endswith('.tfrecord'):
-            records.append(os.path.join(grade_folder, file))
+    if grade_name == 'L4':
+        for file in sorted(os.listdir(grade_folder)):
+            if file.endswith('.tfrecord'):
+                records.append(os.path.join(grade_folder, file))
 
 print(len(records), 'records found')
 
 pitches = []
 energies = []
 
-for record in tqdm(records):
+for record in records: #tqdm(records):
     for record in tf.python_io.tf_record_iterator(record, options=options):
         example = tf.train.Example()
         example.ParseFromString(record)
@@ -34,6 +35,21 @@ for record in tqdm(records):
             assert len(audio) == 1024
         except AssertionError:
             print("the audio segment length should be 1024 in the dataset!!")
+
+        try:
+            assert len(example.features.feature['pitch'].float_list.value)==1
+        except AssertionError:
+            print('More than one pitch')
+
+        try:
+            assert pitch > 180
+        except AssertionError:
+            print('Below violin range')
+
+        try:
+            assert pitch < 3600
+        except AssertionError:
+            print('Above violin range')
 
         energies.append(np.linalg.norm(audio))
         pitches.append(pitch)

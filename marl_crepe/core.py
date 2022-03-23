@@ -123,32 +123,18 @@ def to_viterbi_cents(salience):
     Find the Viterbi path using a transition prior that induces pitch
     continuity.
     """
-    from hmmlearn import hmm
-
-    # uniform prior on the starting pitch
-    starting = np.ones(360) / 360
+    from librosa.sequence import viterbi_discriminative
 
     # transition probabilities inducing continuous pitch
     transition = gaussian_filter1d(np.eye(360), 30) + gaussian_filter1d(np.eye(360), 2)
     transition = transition / np.sum(transition, axis=1)[:, None]
 
-    # emission probability = fixed probability for self, evenly distribute the
-    # others
-    self_emission = 0.1
-    emission = (np.eye(360) * self_emission + np.ones(shape=(360, 360)) *
-                ((1 - self_emission) / 360))
-
-    # fix the model parameters because we are not optimizing the model
-    model = hmm.MultinomialHMM(360, starting, transition)
-    model.startprob_, model.transmat_, model.emissionprob_ = \
-        starting, transition, emission
-
-    # find the Viterbi path
-    observations = np.argmax(salience, axis=1)
-    path = model.predict(observations.reshape(-1, 1), [len(observations)])
+    p = salience/salience.sum(axis=1)[:, None]
+    p[np.isnan(p.sum(axis=1)), :] = np.ones(360) * 1/360
+    path = viterbi_discriminative(p.T, transition)
 
     return path, np.array([to_local_average_cents(salience[i, :], path[i]) for i in
-                           range(len(observations))])
+                           range(len(path))])
 
 
 def get_activation(audio, sr, model_path, model_capacity='full', center=True, step_size=10,

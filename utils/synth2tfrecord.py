@@ -21,23 +21,24 @@ def process_file(stem, path_folder_synth, path_folder_tfrecord):
     # since the hop size in synthesis is 2.9 ms it roughly corresponds to 512/16000
     labels = labels[nonzero, :]
 
-    sr = 16000
-    audio = librosa.load(os.path.join(path_folder_synth, stem + '.wav'), sr=sr)[0]
+    if len(labels):
+        sr = 16000
+        audio = librosa.load(os.path.join(path_folder_synth, stem + '.wav'), sr=sr)[0]
 
-    output_path = os.path.join(path_folder_tfrecord, stem + '.tfrecord')
-    writer = tf.python_io.TFRecordWriter(output_path, options=options)
+        output_path = os.path.join(path_folder_tfrecord, stem + '.tfrecord')
+        writer = tf.python_io.TFRecordWriter(output_path, options=options)
 
-    for row in tqdm(labels):
-        pitch = row[1]
-        center = int(row[0] * sr)
-        segment = audio[center - 512:center + 512]
-        if len(segment) == 1024:
-            example = tf.train.Example(features=tf.train.Features(feature={
-                "audio": tf.train.Feature(float_list=tf.train.FloatList(value=segment)),
-                "pitch": tf.train.Feature(float_list=tf.train.FloatList(value=[pitch]))
-            }))
-            writer.write(example.SerializeToString())
-    writer.close()
+        for row in tqdm(labels):
+            pitch = row[1]
+            center = int(row[0] * sr)
+            segment = audio[center - 512:center + 512]
+            if len(segment) == 1024:
+                example = tf.train.Example(features=tf.train.Features(feature={
+                    "audio": tf.train.Feature(float_list=tf.train.FloatList(value=segment)),
+                    "pitch": tf.train.Feature(float_list=tf.train.FloatList(value=[pitch]))
+                }))
+                writer.write(example.SerializeToString())
+        writer.close()
 
 
 def process_folder(path_folder_synth, path_folder_tfrecord, n_jobs=4):
