@@ -126,12 +126,48 @@ def to_viterbi_cents(salience):
     from librosa.sequence import viterbi_discriminative
 
     # transition probabilities inducing continuous pitch
-    transition = gaussian_filter1d(np.eye(360), 30) + gaussian_filter1d(np.eye(360), 2)
+    # big changes are penalized with one order of magnitude
+    transition = gaussian_filter1d(np.eye(360), 30) + 9*gaussian_filter1d(np.eye(360), 2)
     transition = transition / np.sum(transition, axis=1)[:, None]
 
     p = salience/salience.sum(axis=1)[:, None]
     p[np.isnan(p.sum(axis=1)), :] = np.ones(360) * 1/360
     path = viterbi_discriminative(p.T, transition)
+
+    return path, np.array([to_local_average_cents(salience[i, :], path[i]) for i in
+                           range(len(path))])
+
+
+def to_weird_viterbi_cents(salience):
+    """
+    Find the Viterbi path using a transition prior that induces pitch
+    continuity.
+    """
+    print('WARNING!! USING THE WEIRD VITERBI ALGORITHM FROM THE ORIGINAL CREPE')
+    from hmmlearn import hmm
+
+    # uniform prior on the starting pitch
+    starting = np.ones(360) / 360
+
+    # transition probabilities inducing continuous pitch
+    xx, yy = np.meshgrid(range(360), range(360))
+    transition = np.maximum(12 - abs(xx - yy), 0)
+    transition = transition / np.sum(transition, axis=1)[:, None]
+
+    # emission probability = fixed probability for self, evenly distribute the
+    # others
+    self_emission = 0.1
+    emission = (np.eye(360) * self_emission + np.ones(shape=(360, 360)) *
+                ((1 - self_emission) / 360))
+
+    # fix the model parameters because we are not optimizing the model
+    model = hmm.MultinomialHMM(360, starting, transition)
+    model.startprob_, model.transmat_, model.emissionprob_ = \
+        starting, transition, emission
+
+    # find the Viterbi path
+    observations = np.argmax(salience, axis=1)
+    path = model.predict(observations.reshape(-1, 1), [len(observations)])
 
     return path, np.array([to_local_average_cents(salience[i, :], path[i]) for i in
                            range(len(path))])
@@ -240,29 +276,13 @@ def predict(audio, sr, model_path, model_capacity='full',
                                 center=center, step_size=step_size,
                                 verbose=verbose)
 
-    if viterbi:
+    if viterbi == "weird":
+        path, cents = to_weird_viterbi_cents(activation)
+        confidence = np.array([activation[i, path[i]] for i in range(len(activation))])
+    elif viterbi:
         # NEW!! CONFIDENCE IS NO MORE THE MAX ACTIVATION! CORRECTED TO BE CALCULATED ALONG THE PATH!
         path, cents = to_viterbi_cents(activation)
         confidence = np.array([activation[i, path[i]] for i in range(len(activation))])
-        if combined_viterbi:
-            raw_confidence = activation.max(axis=1)
-            problems = np.logical_and(confidence < 0.1, raw_confidence > 0.4)
-            if any(problems):
-                problem_indices = np.nonzero(problems)[0]
-                for ind in problem_indices:
-                    cents[ind] = to_local_average_cents(activation[ind])
-                    confidence[ind] = raw_confidence[ind]
-                    # TODO add an octave filter
-            '''
-            if sum(problems):
-                problem_indices = np.nonzero(problems)[0] # since it is a tuple and we have one-dim
-                for ind in problem_indices:
-                    rc = to_local_average_cents(activation[ind])
-                    vc = cents[ind]
-
-                raw_cents = to_local_average_cents(activation)
-                non_octave =
-            '''
     else:
         cents = to_local_average_cents(activation)
         confidence = activation.max(axis=1)

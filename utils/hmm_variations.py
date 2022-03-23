@@ -27,7 +27,7 @@ def to_viterbi_cents(salience):
     from librosa.sequence import viterbi_discriminative
 
     # transition probabilities inducing continuous pitch
-    transition = gaussian_filter1d(np.eye(360), 30) + gaussian_filter1d(np.eye(360), 2)
+    transition = gaussian_filter1d(np.eye(360), 30) + 10*gaussian_filter1d(np.eye(360), 2)
     transition = transition / np.sum(transition, axis=1)[:, None]
 
     p = salience/salience.sum(axis=1)[:, None]
@@ -46,8 +46,8 @@ if __name__ == '__main__':
         plt.tight_layout(pad=0.05)
         # fig = plt.figure(figsize=)
         fig, axes = plt.subplots(nrows=2, ncols=1, gridspec_kw={'wspace': 0, 'hspace': 0.2}, squeeze=True, sharex=True)
-        fig.set_size_inches([280, 7])
-        for i, model_name in enumerate(['original', 'cleaned1200']):
+        fig.set_size_inches([180, 20])
+        for i, model_name in enumerate(['original', 'iter1']):
             folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
             activations = os.path.join(folder, 'activations', model_name, 'L6', track + '.npy')
             activations = np.load(activations)
@@ -60,7 +60,7 @@ if __name__ == '__main__':
             #axes.append(fig.add_subplot(2, 1, i + 1))
             axes[i].set_title(model_name+track)
             #axes[i].axis("off")
-            axes[i].imshow(image[:205, 45:, :])
+            axes[i].imshow(image[:205, 10000:15000, :])
         #plt.gca().set_position((0, 0, 1, 1))
         fig.show()
-    print('a')
+        print('a')

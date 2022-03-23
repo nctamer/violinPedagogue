@@ -174,5 +174,6 @@ if __name__ == '__main__':
 
 
     # os.chdir(os.getcwd()+'/utils')
-    # single_file_extract_pitch_with_model('kurdili_solo_violin.wav', model_name='original')
+    # single_file_extract_pitch_with_model('kurdili_solo_violin.wav', model_name='iter1')
+    # single_file_extract_pitch_with_model('kurdili_solo_violin.wav', model_name='original', viterbi='weird')
 
