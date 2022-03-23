@@ -78,7 +78,7 @@ def extract_pitch_with_model(model_name, viterbi=True, save_activation=False, ve
 
     audio_files, output_f0_files, activation_files = [], [], []
     activation_folder = os.path.join(FOLDER, 'activations', model_name)
-    for grade in GRADES:
+    for grade in sorted(GRADES)[::-1]:
         if not os.path.exists(os.path.join(OUT_FOLDER, grade)):
             # Create a new directory because it does not exist
             os.makedirs(os.path.join(OUT_FOLDER, grade))
