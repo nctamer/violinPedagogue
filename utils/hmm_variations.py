@@ -1,3 +1,5 @@
+import copy
+
 import librosa.sequence
 from hmmlearn import hmm
 import numpy as np
@@ -30,7 +32,8 @@ def to_viterbi_cents(salience):
     transition = gaussian_filter1d(np.eye(360), 30) + 10*gaussian_filter1d(np.eye(360), 2)
     transition = transition / np.sum(transition, axis=1)[:, None]
 
-    p = salience/salience.sum(axis=1)[:, None]
+    p = copy.deepcopy(salience)
+    p = p/p.sum(axis=1)[:, None]
     p[np.isnan(p.sum(axis=1)), :] = np.ones(360) * 1/360
     path = viterbi_discriminative(p.T, transition)
 

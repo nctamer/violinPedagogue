@@ -27,7 +27,7 @@ from time import time as taymit
 HOP_SIZE = 128
 SAMPLING_RATE = 44100
 WINDOW_SIZE = 1025  #int(2*(((1024/16000)*SAMPLING_RATE)//2))-1
-WINDOW_TYPE = 'hanning'
+WINDOW_TYPE = 'blackmanharris'
 
 
 def silence_segments_one_run(confidences, confidence_threshold, segment_len_th):
@@ -221,7 +221,8 @@ def apply_pitch_filter(pitch_track_csv, min_chunk_size=20, median=True, confiden
     return pitch_track_csv
 
 
-def analyze_file(filename, path_folder_audio, path_folder_f0, path_folder_anal, confidence_threshold=0.9):
+def analyze_file(filename, path_folder_audio, path_folder_f0, path_folder_anal, confidence_threshold=0.9,
+                 min_voiced_segment_ms=25):
     time_start = taymit()
     audio = librosa.load(os.path.join(path_folder_audio, filename), sr=SAMPLING_RATE, mono=True)[0]
     f0s = pd.read_csv(os.path.join(path_folder_f0, filename[:-3] + "f0.csv"))
@@ -235,9 +236,12 @@ def analyze_file(filename, path_folder_audio, path_folder_f0, path_folder_anal, 
     time_anal = taymit()
 
     conf_bool = conf > confidence_threshold
+    conf_bool_1 = conf < 1.0
     valid_f0_bool = f0s > 180  # lowest note on violin is G3 = 196 hz, so threshold with sth close to the lowest note
     valid_hmag_bool = (hmags > -100).sum(axis=1) > 3  # at least three harmonics
-    valid_bool = np.logical_and(conf_bool, valid_f0_bool, valid_hmag_bool)
+    valid_bool = np.logical_and(conf_bool, conf_bool_1, valid_f0_bool, valid_hmag_bool)
+    min_voiced_segment_len = int(np.ceil((min_voiced_segment_ms / 1000) / (HOP_SIZE / SAMPLING_RATE)))
+    valid_bool = silence_segments_one_run(valid_bool, 0, min_voiced_segment_len)  # if keeps high for some duration
 
     print("anal {:s} took {:.3f}. coverage: {:.3f}".format(filename, time_anal-time_load,
                                                            sum(valid_bool)/len(valid_bool)))
@@ -336,7 +340,7 @@ if __name__ == '__main__':
 
     instrument_model_method = "normalized"
     estimate_instrument_model = True
-    inst_model_use_existing_anal_files = True  #todo just a workaround for the memory leak!
+    inst_model_use_existing_anal_files = False  #todo just a workaround for the memory leak!
     model = "iter1"
 
     if estimate_instrument_model:
@@ -395,7 +399,7 @@ if __name__ == '__main__':
                        path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                        instrument_detector=instrument_timbre_detector,
                        instrument_detector_normalize=instrument_model_normalize,
-                       pitch_shift=True, n_jobs=8)
+                       pitch_shift=True, n_jobs=16)
         synth2tfrecord_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
                               path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord", name),
                               n_jobs=16)
