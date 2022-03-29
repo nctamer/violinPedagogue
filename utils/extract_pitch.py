@@ -80,9 +80,10 @@ def extract_pitch_with_model(model_name, main_dataset_folder=os.path.join(os.pat
     audio_files, output_f0_files, activation_files = [], [], []
     activation_folder = os.path.join(main_dataset_folder, 'activations', model_name)
     for grade in sorted(GRADES)[::-1]:
-        if not os.path.exists(os.path.join(OUT_FOLDER, grade)):
-            # Create a new directory because it does not exist
-            os.makedirs(os.path.join(OUT_FOLDER, grade))
+        if os.path.isdir(os.path.join(main_dataset_folder, grade)):
+            if not os.path.exists(os.path.join(OUT_FOLDER, grade)):
+                # Create a new directory because it does not exist
+                os.makedirs(os.path.join(OUT_FOLDER, grade))
         new_audio_files = sorted(glob.glob(os.path.join(main_dataset_folder, grade, "*" + AUDIO_FORMAT)))
         audio_files.extend(new_audio_files)
         output_f0_files.extend(
