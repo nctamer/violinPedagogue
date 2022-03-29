@@ -68,21 +68,22 @@ def urmp_extract_pitch_with_model(model_name, instrument='vn',
     return
 
 
-def extract_pitch_with_model(model_name, viterbi=True, save_activation=False, verbose=1):
-    FOLDER = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
-    OUT_FOLDER = os.path.join(FOLDER, 'pitch_tracks', model_name)
+def extract_pitch_with_model(model_name, main_dataset_folder=os.path.join(os.path.expanduser("~"), "violindataset",
+                                                                          "graded_repertoire"),
+                             viterbi=True, save_activation=False, verbose=1):
+    OUT_FOLDER = os.path.join(main_dataset_folder, 'pitch_tracks', model_name)
     AUDIO_FORMAT = ".mp3"
-    GRADES = ["L1", "L2", "L3", "L4", "L5", "L6"]
+    GRADES = sorted(os.listdir(main_dataset_folder))
 
     model_path = os.path.join('..', 'crepe', 'models', model_name + '.h5')
 
     audio_files, output_f0_files, activation_files = [], [], []
-    activation_folder = os.path.join(FOLDER, 'activations', model_name)
+    activation_folder = os.path.join(main_dataset_folder, 'activations', model_name)
     for grade in sorted(GRADES)[::-1]:
         if not os.path.exists(os.path.join(OUT_FOLDER, grade)):
             # Create a new directory because it does not exist
             os.makedirs(os.path.join(OUT_FOLDER, grade))
-        new_audio_files = sorted(glob.glob(os.path.join(FOLDER, grade, "*" + AUDIO_FORMAT)))
+        new_audio_files = sorted(glob.glob(os.path.join(main_dataset_folder, grade, "*" + AUDIO_FORMAT)))
         audio_files.extend(new_audio_files)
         output_f0_files.extend(
             [os.path.join(OUT_FOLDER, grade, os.path.basename(_)[:-3] + "f0.csv") for _ in new_audio_files])
@@ -165,10 +166,13 @@ def urmp_evaluate_all(instrument="vn", urmp_path=os.path.join(os.path.expanduser
 
 
 if __name__ == '__main__':
-    new_model_name = 'iter1'
-    urmp_extract_pitch_with_model(new_model_name, instrument="vn", viterbi=False, verbose=1)
-    urmp_evaluate_all(instrument="vn")
-    extract_pitch_with_model(model_name=new_model_name, save_activation=True, viterbi=True, verbose=0)
+    new_model_name = 'original'
+    #urmp_extract_pitch_with_model(new_model_name, instrument="vn", viterbi=False, verbose=1)
+    #urmp_evaluate_all(instrument="vn")
+    extract_pitch_with_model(model_name=new_model_name,
+                             main_dataset_folder=os.path.join(os.path.expanduser("~"),
+                                                              "violindataset", "monophonic_etudes"),
+                             save_activation=False, viterbi=True, verbose=1)
     #for new_model_name in new_model_names:
     #    extract_pitch_with_model(model_name=new_model_name, save_activation=True, viterbi=True, verbose=0)
 
