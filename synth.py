@@ -334,14 +334,15 @@ def process_folder(path_folder_audio, path_folder_f0, path_folder_synth, pitch_s
 
 
 if __name__ == '__main__':
-    names = ["L1", "L2", "L3", "L4", "L5", "L6"]
+    names = ["Suzuki", "Dancla", "Wohlfahrt", "Sitt", "Kayser", "Mazas", "DontOp37", "Kreutzer", "Fiorillo",
+             "Rode", "DomtOp35", "Gavinies"]
 
-    dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire")
+    dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes")
 
     instrument_model_method = "normalized"
     estimate_instrument_model = True
     inst_model_use_existing_anal_files = False  #todo just a workaround for the memory leak!
-    model = "iter1"
+    model = "original"
 
     if estimate_instrument_model:
         print("started instrument model estimation")

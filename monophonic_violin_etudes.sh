@@ -119,8 +119,8 @@ rm 'Pierre Rode by Oscar Shumsky'*
 
 
 ### DONT OP 35 ### 7 etudes {2, 3, 5, 6. 7, 15, 17}
-yt-dlp --yes-playlist --playlist-items 2,3,5,6,7,15,17 https://youtube.com/playlist?list=PLANsNQxncQthVJzfzMJ2VpnDKqOepNG4g -x --audio-format mp3 --audio-quality 0   -o "DomtOp35/DontOp35_BernardChevalier_%(playlist_index)03d_%(title)s.%(ext)s"
-yt-dlp --yes-playlist --playlist-items 2,3,5,6,7,15,17 https://youtube.com/playlist?list=PLQT2_mTTuV12YO0OL6iNOIm0zyJslRhXW -x --audio-format mp3 --audio-quality 0   -o "DomtOp35/DontOp35_LeahRoseman_%(playlist_index)03d_%(title)s.%(ext)s"
+yt-dlp --yes-playlist --playlist-items 2,3,5,6,7,15,17 https://youtube.com/playlist?list=PLANsNQxncQthVJzfzMJ2VpnDKqOepNG4g -x --audio-format mp3 --audio-quality 0   -o "DontOp35/DontOp35_BernardChevalier_%(playlist_index)03d_%(title)s.%(ext)s"
+yt-dlp --yes-playlist --playlist-items 2,3,5,6,7,15,17 https://youtube.com/playlist?list=PLQT2_mTTuV12YO0OL6iNOIm0zyJslRhXW -x --audio-format mp3 --audio-quality 0   -o "DontOp35/DontOp35_LeahRoseman_%(playlist_index)03d_%(title)s.%(ext)s"
 
 
 ### GAVINIES ### 6 etudes
