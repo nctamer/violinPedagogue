@@ -28,6 +28,7 @@ HOP_SIZE = 128
 SAMPLING_RATE = 44100
 WINDOW_SIZE = 1025  #int(2*(((1024/16000)*SAMPLING_RATE)//2))-1
 WINDOW_TYPE = 'blackmanharris'
+LOWEST_NOTE_ALLOWED_HZ = 180
 
 
 def silence_segments_one_run(confidences, confidence_threshold, segment_len_th):
@@ -237,9 +238,11 @@ def analyze_file(filename, path_folder_audio, path_folder_f0, path_folder_anal, 
 
     conf_bool = conf > confidence_threshold
     conf_bool_1 = conf < 1.0
-    valid_f0_bool = f0s > 180  # lowest note on violin is G3 = 196 hz, so threshold with sth close to the lowest note
+    conf_bool = np.logical_and(conf_bool, conf_bool_1)
+    valid_f0_bool = f0s > LOWEST_NOTE_ALLOWED_HZ
+    # lowest note on violin is G3 = 196 hz, so threshold with sth close to the lowest note
     valid_hmag_bool = (hmags > -100).sum(axis=1) > 3  # at least three harmonics
-    valid_bool = np.logical_and(conf_bool, conf_bool_1, valid_f0_bool, valid_hmag_bool)
+    valid_bool = np.logical_and(conf_bool, valid_f0_bool, valid_hmag_bool)
     min_voiced_segment_len = int(np.ceil((min_voiced_segment_ms / 1000) / (HOP_SIZE / SAMPLING_RATE)))
     valid_bool = silence_segments_one_run(valid_bool, 0, min_voiced_segment_len)  # if keeps high for some duration
 
