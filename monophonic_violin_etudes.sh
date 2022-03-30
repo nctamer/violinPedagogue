@@ -49,16 +49,17 @@ yt-dlp --yes-playlist --playlist-items 1-5,7-11,13-17,19,22-24,26-30,33-36,38,40
 # 41 etudes with constant single voice, no pizzicato [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 16, 17, 18,
 # {19, 20, 22, 23, 24, 25, 26, 29, 31, 32, 34, 35, 36, 37, 39, 41, 42, 45, 48, 49, 50, 51, 52, 57, 58}
 # BochanKang plays them with bowing variations, which might be very interesting  research problem on its own right
-# TimRohwer only till 44
+# BochanKang normal ones: 4,8,9,10,24,29,31,32,35,37,39,42,52
+yt-dlp --yes-playlist --playlist-items 4,8,9,10,24,29,31,32,35,37,39,42,52 https://youtube.com/playlist?list=PLIcJOrQKnxs1DNu-hrKQrdvmsbe0kVYlA -x --audio-format mp3 --audio-quality 0   -o "monoWohlfahrt/WohlfahrtOp45_BochanKang_%(playlist_index)03d_%(title)s.%(ext)s"
+# BochanKang bowing variations: 1,2,3,5,6,7,11,12,13,14,15,16,17,18,19,20,21,22,23,25,26,34,36,41
+# BochanKang w/ 'lesson' *44,*45,*46,47,48,49(withVariations),50,51,55,56,57,58,59,60 (*keeps talking in actual play)
+yt-dlp --yes-playlist --playlist-items 1-12,15-17,18-20,22-26,29,31,32,34-37,39,41-42,48-52,57,58 https://youtube.com/playlist?list=PLIcJOrQKnxs1DNu-hrKQrdvmsbe0kVYlA --split-chapters --remove-chapters "Lesson"  -x --audio-format mp3 --audio-quality 0   -o "chapter:monoWohlfahrt/WohlfahrtOp45_BochanKang_%(playlist_index)03d_%(section_number)03d_%(title)s_%(section_title)s.%(ext)s"
+# TimRohwer only till 44, MichaelPijoan only till 38
 yt-dlp --yes-playlist --playlist-items 1-12,15-17,18-20,22-26,29,31,32,34-37,39,41-42,45,48-52,57,58 https://www.youtube.com/playlist?list=OLAK5uy_mESjCL-XUZUHoO2T_uXGd-q4YYJhgbLOo -x --audio-format mp3 --audio-quality 0   -o "monoWohlfahrt/WohlfahrtOp45_JPRafferty_%(playlist_index)03d_%(title)s.%(ext)s"
 yt-dlp --yes-playlist --playlist-items 1-12,15-17,18-20,22-26,29,31,32,34-37,39,41-42,45,48-52,57,58 https://youtube.com/playlist?list=PLQT2_mTTuV128kC6hL-W2aw5Ntj7Ed3mO -x --audio-format mp3 --audio-quality 0   -o "monoWohlfahrt/WohlfahrtOp45_BernardChevalier_%(playlist_index)03d_%(title)s.%(ext)s"
 yt-dlp --yes-playlist --playlist-items 1-12,15-17,18-20,22-26,29,31,32,34-37,39,41-42,45,48-52,57,58 https://youtube.com/playlist?list=PLCA313AAE75E6FEED -x --audio-format mp3 --audio-quality 0   -o "monoWohlfahrt/WohlfahrtOp45_BrianClement_%(playlist_index)03d_%(title)s.%(ext)s"
-#BochanKang normal ones: 4,8,9,10,24,29,31,32,35,37,39,42,52
-yt-dlp --yes-playlist --playlist-items 4,8,9,10,24,29,31,32,35,37,39,42,52 https://youtube.com/playlist?list=PLIcJOrQKnxs1DNu-hrKQrdvmsbe0kVYlA -x --audio-format mp3 --audio-quality 0   -o "monoWohlfahrt/WohlfahrtOp45_BochanKang_%(playlist_index)03d_%(title)s.%(ext)s"
-#BochanKang bowing variations: 1,2,3,5,6,7,11,12,13,14,15,16,17,18,19,20,21,22,23,25,26,34,36,41
-# BochanKang w/ 'lesson' *44,*45,*46,47,48,49(withVariations),50,51,55,56,57,58,59,60 (*keeps talking in actual play)
-yt-dlp --yes-playlist --playlist-items 1-12,15-17,18-20,22-26,29,31,32,34-37,39,41-42,48-52,57,58 https://youtube.com/playlist?list=PLIcJOrQKnxs1DNu-hrKQrdvmsbe0kVYlA --split-chapters --remove-chapters "Lesson"  -x --audio-format mp3 --audio-quality 0   -o "chapter:monoWohlfahrt/WohlfahrtOp45_BochanKang_%(playlist_index)03d_%(section_number)03d_%(title)s_%(section_title)s.%(ext)s"
 yt-dlp --yes-playlist --playlist-items 1-12,15-17,18-20,22-26,29,31,32,34-37,39,41-42 https://youtube.com/playlist?list=PLatxbbcShnHWgHACAchZ_EGyZmMAi73mP -x --audio-format mp3 --audio-quality 0   -o "monoWohlfahrt/WohlfahrtOp45_TimRohwer_%(playlist_index)03d_%(title)s.%(ext)s"
+yt-dlp --yes-playlist --playlist-items 1-12,15-17,18-20,22-26,29,31,32,34-37 https://youtube.com/playlist?list=PLEF8D2CF5038BBC44 -x --audio-format mp3 --audio-quality 0   -o "monoWohlfahrt/WohlfahrtOp45_MichaelPijoan_%(playlist_index)03d_%(title)s.%(ext)s"
 rm 'Wohlfahrt'*
 rm '[Lesson]'*
 

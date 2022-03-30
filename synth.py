@@ -334,10 +334,9 @@ def process_folder(path_folder_audio, path_folder_f0, path_folder_synth, pitch_s
 
 
 if __name__ == '__main__':
-    names = ["Suzuki", "Dancla", "Wohlfahrt", "Sitt", "Kayser", "Mazas", "DontOp37", "Kreutzer", "Fiorillo",
-             "Rode", "DomtOp35", "Gavinies"]
 
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes")
+    names = sorted([_ for _ in os.listdir(dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
 
     instrument_model_method = "normalized"
     estimate_instrument_model = True
