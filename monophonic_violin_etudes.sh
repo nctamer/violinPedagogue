@@ -59,7 +59,8 @@ yt-dlp --yes-playlist --playlist-items 4,8,9,10,24,29,31,32,35,37,39,42,52 https
 # BochanKang w/ 'lesson' *44,*45,*46,47,48,49(withVariations),50,51,55,56,57,58,59,60 (*keeps talking in actual play)
 yt-dlp --yes-playlist --playlist-items 1-12,15-17,18-20,22-26,29,31,32,34-37,39,41-42,48-52,57,58 https://youtube.com/playlist?list=PLIcJOrQKnxs1DNu-hrKQrdvmsbe0kVYlA --split-chapters --remove-chapters "Lesson"  -x --audio-format mp3 --audio-quality 0   -o "chapter:monoWohlfahrt/WohlfahrtOp45_BochanKang_%(playlist_index)03d_%(section_number)03d_%(title)s_%(section_title)s.%(ext)s"
 yt-dlp --yes-playlist --playlist-items 1-12,15-17,18-20,22-26,29,31,32,34-37,39,41-42 https://youtube.com/playlist?list=PLatxbbcShnHWgHACAchZ_EGyZmMAi73mP -x --audio-format mp3 --audio-quality 0   -o "monoWohlfahrt/WohlfahrtOp45_TimRohwer_%(playlist_index)03d_%(title)s.%(ext)s"
-
+rm 'Wohlfahrt'*
+rm '[Lesson]'*
 
 
 ### SITT ###
