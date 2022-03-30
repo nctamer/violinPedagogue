@@ -242,7 +242,8 @@ def analyze_file(filename, path_folder_audio, path_folder_f0, path_folder_anal, 
     valid_f0_bool = f0s > LOWEST_NOTE_ALLOWED_HZ
     # lowest note on violin is G3 = 196 hz, so threshold with sth close to the lowest note
     valid_hmag_bool = (hmags > -100).sum(axis=1) > 3  # at least three harmonics
-    valid_bool = np.logical_and(conf_bool, valid_f0_bool, valid_hmag_bool)
+    valid_bool = np.logical_and(valid_hmag_bool, valid_f0_bool)
+    valid_bool = np.logical_and(conf_bool, valid_bool)
     min_voiced_segment_len = int(np.ceil((min_voiced_segment_ms / 1000) / (HOP_SIZE / SAMPLING_RATE)))
     valid_bool = silence_segments_one_run(valid_bool, 0, min_voiced_segment_len)  # if keeps high for some duration
 
