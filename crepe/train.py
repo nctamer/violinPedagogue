@@ -102,13 +102,13 @@ class PitchAccuracyCallback(keras.callbacks.Callback):
 
 
 def main():
-    names = ["L1", "L2", "L3", "L4", "L5", "L6"]
-    dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire", "tfrecord")
+    dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes", "tfrecord")
+    names = sorted([_ for _ in os.listdir(dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
     train_set, val_sets = prepare_datasets(dataset_folder, names)
     val_data = Dataset.concat([Dataset(*val_set) for val_set in val_sets]).collect()
 
-    options["load_model_weights"] = "models/iter1.h5"
-    options["save_model_weights"] = "iter2.h5"
+    options["load_model_weights"] = "models/original.h5"
+    options["save_model_weights"] = "april.h5"
     options["steps_per_epoch"] = 1000
     model: keras.Model = build_model()
     model.summary()
