@@ -13,17 +13,16 @@ dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monopho
 records = []
 for grade_name in sorted(os.listdir(dataset_folder)):
     grade_folder = os.path.join(dataset_folder, grade_name)
-    if grade_name == 'L4':
-        for file in sorted(os.listdir(grade_folder)):
-            if file.endswith('.tfrecord'):
-                records.append(os.path.join(grade_folder, file))
+    for file in sorted(os.listdir(grade_folder)):
+        if file.endswith('.tfrecord'):
+            records.append(os.path.join(grade_folder, file))
 
 print(len(records), 'records found')
 
 pitches = []
 energies = []
 
-for record in records: #tqdm(records):
+for record in tqdm(records):
     for record in tf.python_io.tf_record_iterator(record, options=options):
         example = tf.train.Example()
         example.ParseFromString(record)
