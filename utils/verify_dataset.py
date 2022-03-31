@@ -9,7 +9,7 @@ from mir_eval.melody import hz2cents
 
 options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
 
-dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire", "tfrecord")
+dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes", "tfrecord")
 records = []
 for grade_name in sorted(os.listdir(dataset_folder)):
     grade_folder = os.path.join(dataset_folder, grade_name)
