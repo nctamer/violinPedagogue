@@ -36,7 +36,8 @@ def prepare_datasets(parent_folder, grades) -> (Dataset, (np.ndarray, np.ndarray
             else:
                 train_per_grade.append(os.path.join(parent_folder, grade, path))
         train.append(train_per_grade)
-        validation.append(validation_per_grade)
+        if validation_per_grade:
+            validation.append(validation_per_grade)
 
     train = train_dataset(*train, batch_size=options['batch_size'], augment=options['augment'])
     print("Train dataset:", train, file=sys.stderr)
