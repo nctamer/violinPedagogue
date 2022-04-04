@@ -345,7 +345,7 @@ if __name__ == '__main__':
     instrument_model_method = "normalized"
     estimate_instrument_model = True
     inst_model_use_existing_anal_files = False  #todo just a workaround for the memory leak!
-    model = "original"
+    model = "april3"
 
     if estimate_instrument_model:
         print("started instrument model estimation")

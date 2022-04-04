@@ -167,15 +167,15 @@ def urmp_evaluate_all(instrument="vn", urmp_path=os.path.join(os.path.expanduser
 
 
 if __name__ == '__main__':
-    new_model_name = 'april2'
+    new_model_name = 'april3'
     urmp_extract_pitch_with_model(new_model_name, instrument="vn", viterbi=False, verbose=1)
     urmp_evaluate_all(instrument="vn")
-    """
+
     extract_pitch_with_model(model_name=new_model_name,
                              main_dataset_folder=os.path.join(os.path.expanduser("~"),
                                                               "violindataset", "monophonic_etudes"),
                              save_activation=False, viterbi=True, verbose=1)
-    """
+
 
     #for new_model_name in new_model_names:
     #    extract_pitch_with_model(model_name=new_model_name, save_activation=True, viterbi=True, verbose=0)
