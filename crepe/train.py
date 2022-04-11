@@ -65,7 +65,7 @@ class LossHistory(keras.callbacks.Callback):
     def on_train_batch_end(self, batch, logs=None):
         if batch % 20 == 0:
             self.losses.append(logs.get('loss'))
-            self.val_losses.append(self.model.evaluate(self.validation_data[0], self.validation_data[1]))
+            self.val_losses.append(self.model.evaluate(self.validation_data))
             print("val_loss", self.val_losses[-1])
 
 class PitchAccuracyCallback(keras.callbacks.Callback):
