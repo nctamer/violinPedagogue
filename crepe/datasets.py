@@ -151,7 +151,7 @@ def train_dataset(*names, batch_size=32, loop=True, augment=True):
     dataset = dataset.map(
         lambda x, y: (
             tf.numpy_function(aud_norm, [x], Tout=tf.float32), tf.numpy_function(pitch_cent, [y], Tout=tf.float32)
-        )
+        ), num_parallel_calls=tf.data.AUTOTUNE
     )
 
     if augment:
@@ -160,7 +160,7 @@ def train_dataset(*names, batch_size=32, loop=True, augment=True):
     return dataset
 
 
-def validation_dataset(*names, seed=None, take=None):
+def validation_dataset(*names, batch_size=32, seed=None, take=None):
     if len(names) == 0:
         raise ValueError("dataset names required")
 
@@ -181,11 +181,11 @@ def validation_dataset(*names, seed=None, take=None):
             all_datasets.concatenate(dataset)
         else:
             all_datasets = dataset
-    all_datasets = all_datasets.batch(take)
+    all_datasets = all_datasets.batch(batch_size)
     # Normalize the audio and convert f0 in hz to cents
     all_datasets = all_datasets.map(
         lambda x, y: (
             tf.numpy_function(aud_norm, [x], Tout=tf.float32), tf.numpy_function(pitch_cent, [y], Tout=tf.float32)
-        )
+        ), num_parallel_calls=tf.data.AUTOTUNE
     )
     return all_datasets

@@ -45,11 +45,27 @@ def prepare_datasets(parent_folder, grades):
     v = []
     for name in validation:
         print("Collecting validation set {}:".format(name), file=sys.stderr)
-        dataset = validation_dataset(name, seed=42, take=100).take(options['validation_take'])
+        dataset = validation_dataset(name, batch_size=options['batch_size'],
+                                     seed=42, take=100).take(options['validation_take'])
         v.append(dataset)
 
     return train, v
 
+class LossHistory(keras.callbacks.Callback):
+    def __init__(self):
+        super(keras.callbacks.Callback, self).__init__()
+        self.losses = []
+        self.val_losses = []
+
+    def on_train_begin(self, logs=None):
+        self.losses = []
+        self.val_losses = []
+
+    def on_train_batch_end(self, batch, logs=None):
+        if batch % 200 == 0:
+            self.losses.append(logs.get('loss'))
+            self.val_losses.append(self.model.evaluate(self.validation_data[0], self.validation_data[1]))
+            print("val_loss", self.val_losses[-1])
 
 class PitchAccuracyCallback(keras.callbacks.Callback):
     def __init__(self, val_sets, local_average=False):
@@ -117,7 +133,7 @@ def main():
     model.summary()
 
     model.fit(train_set, steps_per_epoch=options['steps_per_epoch'], epochs=options['epochs'],
-              callbacks=get_default_callbacks(),
+              callbacks=get_default_callbacks() + [LossHistory()],
               # + [PitchAccuracyCallback(val_sets, local_average=True)],
               validation_data=val_data)
 
