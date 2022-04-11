@@ -57,16 +57,22 @@ class LossHistory(keras.callbacks.Callback):
         self.losses = []
         self.val_losses = []
         self.validation_data = validation_data
+        with open(log_path("loss_per_step.tsv"), "w") as f:
+            f.write('\t'.join(["step", "val_loss"]) + '\n')
 
     def on_train_begin(self, logs=None):
         self.losses = []
         self.val_losses = []
 
     def on_train_batch_end(self, batch, logs=None):
-        if batch % 20 == 0:
+        if batch % 250 == 0:
             self.losses.append(logs.get('loss'))
             self.val_losses.append(self.model.evaluate(self.validation_data))
-            print("val_loss", self.val_losses[-1])
+            step = int(batch//250)
+            val_loss = self.val_losses[-1]
+            print("step", step, "val_loss", val_loss)
+            with open(log_path("loss_per_step.tsv"), "a") as f:
+                f.write('\t'.join([step, val_loss]) + '\n')
 
 class PitchAccuracyCallback(keras.callbacks.Callback):
     def __init__(self, val_sets, local_average=False):
