@@ -72,7 +72,7 @@ class LossHistory(keras.callbacks.Callback):
             val_loss = self.val_losses[-1]
             print("step", step, "val_loss", val_loss)
             with open(log_path("loss_per_step.tsv"), "a") as f:
-                f.write('\t'.join([step, val_loss]) + '\n')
+                f.write('\t'.join([str(step), str(val_loss)]) + '\n')
 
 class PitchAccuracyCallback(keras.callbacks.Callback):
     def __init__(self, val_sets, local_average=False):
