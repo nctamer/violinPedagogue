@@ -113,7 +113,6 @@ def main():
             val_data.concatenate(vs)
     options["load_model_weights"] = "models/original.h5"
     options["save_model_weights"] = "april.h5"
-    options["steps_per_epoch"] = 1000
     model: keras.Model = build_model()
     model.summary()
 
@@ -121,7 +120,6 @@ def main():
               callbacks=get_default_callbacks(),
               # + [PitchAccuracyCallback(val_sets, local_average=True)],
               validation_data=val_data)
-
 
 if __name__ == "__main__":
     main()
