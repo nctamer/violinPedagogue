@@ -1,6 +1,5 @@
 import os
 import tensorflow as tf
-from flazy import Dataset
 from mir_eval.melody import hz2cents
 from scipy.stats import norm
 from functools import partial
@@ -134,7 +133,7 @@ def pitch_cent(pitch):
     pitch = np.stack(list(map(to_classifier_label, pitch)))
     return pitch
 
-def train_dataset(*names, batch_size=32, loop=True, augment=True) -> Dataset:
+def train_dataset(*names, batch_size=32, loop=True, augment=True):
     if len(names) == 0:
         raise ValueError("dataset names required")
 
@@ -160,7 +159,7 @@ def train_dataset(*names, batch_size=32, loop=True, augment=True) -> Dataset:
     return dataset
 
 
-def validation_dataset(*names, seed=None, take=None) -> Dataset:
+def validation_dataset(*names, seed=None, take=None):
     if len(names) == 0:
         raise ValueError("dataset names required")
 

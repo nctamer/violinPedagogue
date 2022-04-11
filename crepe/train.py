@@ -10,7 +10,7 @@ import numpy as np
 validation_set_names = ["monoKreutzer", "monoKayser", "monoWohlfahrt"]
 
 
-def prepare_datasets(parent_folder, grades) -> (Dataset, (np.ndarray, np.ndarray)):
+def prepare_datasets(parent_folder, grades):
     gp = [[(grade, _.split('_')[1]) for _ in os.listdir(os.path.join(parent_folder, grade))] for grade in grades]
     _, player = zip(*set(itertools.chain.from_iterable(gp)))
     p, p_count = zip(*[(pl, player.count(pl)) for pl in sorted(list(set(player)))])
