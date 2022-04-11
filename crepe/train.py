@@ -52,11 +52,11 @@ def prepare_datasets(parent_folder, grades):
     return train, v
 
 class LossHistory(keras.callbacks.Callback):
-    def __init__(self, val_data):
+    def __init__(self, validation_data):
         super(keras.callbacks.Callback, self).__init__()
         self.losses = []
         self.val_losses = []
-        self.val_data = val_data
+        self.validation_data = validation_data
 
     def on_train_begin(self, logs=None):
         self.losses = []
