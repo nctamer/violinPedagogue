@@ -143,8 +143,8 @@ def train_dataset(*names, batch_size=32, loop=True, augment=True):
     dataset = load_dataset(paths)
     dataset = dataset.shuffle(2048)
     dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
-    if loop:
-        dataset = dataset.repeat()
+    #if loop:
+    #    dataset = dataset.repeat()
     dataset = dataset.batch(batch_size)
 
     # Normalize the audio and convert f0 in hz to cents
