@@ -117,7 +117,7 @@ def main():
     model: keras.Model = build_model()
     model.summary()
 
-    model.fit(iter(train_set), steps_per_epoch=options['steps_per_epoch'], epochs=options['epochs'],
+    model.fit(train_set, steps_per_epoch=options['steps_per_epoch'], epochs=options['epochs'],
               callbacks=get_default_callbacks(),
               # + [PitchAccuracyCallback(val_sets, local_average=True)],
               validation_data=val_data)
