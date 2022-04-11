@@ -141,17 +141,18 @@ def train_dataset(*names, batch_size=32, loop=True, augment=True):
     paths = [j for i in names for j in i]  # join separate train paths (list of lists -> single list)
 
     dataset = load_dataset(paths)
-    #dataset = dataset.shuffle(2048)
+    dataset = dataset.shuffle(2048)
     dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
+    if loop:
+        dataset = dataset.repeat()
     dataset = dataset.batch(batch_size)
 
     # Normalize the audio and convert f0 in hz to cents
     dataset = dataset.map(
-        lambda x, y: (tf.numpy_function(aud_norm, [x], Tout=tf.float32), tf.numpy_function(pitch_cent, [y], Tout=tf.float32))
+        lambda x, y: (
+            tf.numpy_function(aud_norm, [x], Tout=tf.float32), tf.numpy_function(pitch_cent, [y], Tout=tf.float32)
+        )
     )
-
-    if loop:
-        dataset = dataset.repeat()
 
     if augment:
         print("NO AUGMENT IMPLEMENTED DURING TRAINING!! CONSIDER ADDITIVE NOISE")
@@ -184,6 +185,7 @@ def validation_dataset(*names, seed=None, take=None):
     # Normalize the audio and convert f0 in hz to cents
     all_datasets = all_datasets.map(
         lambda x, y: (
-        tf.numpy_function(aud_norm, [x], Tout=tf.float32), tf.numpy_function(pitch_cent, [y], Tout=tf.float32))
+            tf.numpy_function(aud_norm, [x], Tout=tf.float32), tf.numpy_function(pitch_cent, [y], Tout=tf.float32)
+        )
     )
     return all_datasets
