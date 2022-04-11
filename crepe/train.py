@@ -52,17 +52,18 @@ def prepare_datasets(parent_folder, grades):
     return train, v
 
 class LossHistory(keras.callbacks.Callback):
-    def __init__(self):
+    def __init__(self, val_data):
         super(keras.callbacks.Callback, self).__init__()
         self.losses = []
         self.val_losses = []
+        self.val_data = val_data
 
     def on_train_begin(self, logs=None):
         self.losses = []
         self.val_losses = []
 
     def on_train_batch_end(self, batch, logs=None):
-        if batch % 200 == 0:
+        if batch % 20 == 0:
             self.losses.append(logs.get('loss'))
             self.val_losses.append(self.model.evaluate(self.validation_data[0], self.validation_data[1]))
             print("val_loss", self.val_losses[-1])
@@ -133,7 +134,7 @@ def main():
     model.summary()
 
     model.fit(train_set, steps_per_epoch=options['steps_per_epoch'], epochs=options['epochs'],
-              callbacks=get_default_callbacks() + [LossHistory()],
+              callbacks=get_default_callbacks() + [LossHistory(val_data)],
               # + [PitchAccuracyCallback(val_sets, local_average=True)],
               validation_data=val_data)
 
