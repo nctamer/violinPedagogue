@@ -45,7 +45,7 @@ def prepare_datasets(parent_folder, grades) -> (Dataset, (np.ndarray, np.ndarray
     v = []
     for name in validation:
         print("Collecting validation set {}:".format(name), file=sys.stderr)
-        dataset = validation_dataset(name, seed=42, take=100).take(options['validation_take']).collect(verbose=True)
+        dataset = validation_dataset(name, seed=42, take=100).take(options['validation_take'])
         v.append(dataset)
 
     return train, v
@@ -54,7 +54,7 @@ def prepare_datasets(parent_folder, grades) -> (Dataset, (np.ndarray, np.ndarray
 class PitchAccuracyCallback(keras.callbacks.Callback):
     def __init__(self, val_sets, local_average=False):
         super().__init__()
-        self.val_sets = [(audio, to_weighted_average_cents(pitch)) for audio, pitch in val_sets]
+        self.val_sets = val_sets
         self.local_average = local_average
         self.to_cents = local_average and to_local_average_cents or to_weighted_average_cents
         self.prefix = local_average and 'local-average-' or 'default-'
@@ -103,22 +103,24 @@ class PitchAccuracyCallback(keras.callbacks.Callback):
 
 
 def main():
-    dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes", "tfrecord")
+    #dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes", "tfrecord")
+    dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire", "tfrecord")
     names = sorted([_ for _ in os.listdir(dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
     train_set, val_sets = prepare_datasets(dataset_folder, names)
-    val_data = Dataset.concat([Dataset(*val_set) for val_set in val_sets]).collect()
-
+    val_data = val_sets[0]
+    for i, vs in enumerate(val_sets):
+        if i>0:
+            val_data.concatenate(vs)
     options["load_model_weights"] = "models/original.h5"
     options["save_model_weights"] = "april.h5"
-    options["steps_per_epoch"] = 1000
+    options["steps_per_epoch"] = 2
     model: keras.Model = build_model()
     model.summary()
 
-    model.fit_generator(iter(train_set), steps_per_epoch=options['steps_per_epoch'], epochs=options['epochs'],
-                        callbacks=get_default_callbacks() + [
-                            PitchAccuracyCallback(val_sets, local_average=True)
-                        ],
-                        validation_data=val_data)
+    model.fit(iter(train_set), steps_per_epoch=options['steps_per_epoch'], epochs=options['epochs'],
+              callbacks=get_default_callbacks(),
+              # + [PitchAccuracyCallback(val_sets, local_average=True)],
+              validation_data=val_data)
 
 
 if __name__ == "__main__":

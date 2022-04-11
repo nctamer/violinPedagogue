@@ -1,6 +1,7 @@
 import numpy as np
 from random import Random
 
+'''
 try:
     import pyrubberband.rubberband
     print('native rubberband library loaded')
@@ -10,7 +11,7 @@ except ImportError:
     import pyrubberband as pyrb
     def shift(audio, amount):
         return pyrb.pitch_shift(audio, 16000, amount)
-
+'''
 random = Random(42)
 
 
@@ -28,7 +29,7 @@ def add_noise(audio, pitch):
     noise = np.random.randn(*audio.shape) * level
     return audio + noise, pitch
 
-
+'''
 def pitch_shift(audio, pitch):
     if random.random() < 0.2:
         return audio, pitch
@@ -38,3 +39,4 @@ def pitch_shift(audio, pitch):
     pitch = pitch * 2.0 ** (amount / 12)
 
     return audio, pitch
+'''
