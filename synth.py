@@ -186,6 +186,7 @@ def supress_timbre_anomalies(instrument_detector, hfreq, hmag, hphase, f0, instr
         hmag_ptr[hvalid] = hmag_ptr[hvalid] + 100
         hvalid = np.logical_and(hvalid, hmag_ptr[:, 0] > 0)
         hmag_ptr = np.divide(hmag_ptr, hmag_ptr[:, 0][:, None], where=hvalid[:, None])
+    hmag_ptr[np.isnan(hmag_ptr)] = 0.0
     voiced = instrument_detector.predict(hmag_ptr)
     voiced = voiced > 0
     f0[~voiced] = 0
@@ -265,10 +266,8 @@ def analyze_folder(path_folder_audio, path_folder_f0, path_folder_anal, confiden
 
 
 def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
-                 instrument_detector=None, instrument_detector_normalize=False, pitch_shift=False):
-    th_lc = 0.2
-    th_hc = 0.7
-    voiced_th_ms = 100
+                 instrument_detector=None, instrument_detector_normalize=False, refine_twm=True, pitch_shift=False,
+                 th_lc=0.2, th_hc=0.7, voiced_th_ms=100):
     time_start = taymit()
     audio = librosa.load(os.path.join(path_folder_audio, filename), sr=SAMPLING_RATE, mono=True)[0]
     f0s = pd.read_csv(os.path.join(path_folder_f0, filename[:-3] + "f0.csv"))
@@ -290,9 +289,10 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
     if instrument_detector is not None:
         hfreqs, hmags, hphases, f0 = supress_timbre_anomalies(instrument_detector, hfreqs, hmags, hphases, f0s,
                                                               instrument_detector_normalize)
-    hfreqs, hmags, hphases, f0s = refine_harmonics_twm(hfreqs, hmags, hphases,
-                                                       f0s, f0et=5.0, f0_refinement_range_cents=16,
-                                                       min_voiced_segment_ms=voiced_th_ms)
+    if refine_twm:
+        hfreqs, hmags, hphases, f0s = refine_harmonics_twm(hfreqs, hmags, hphases,
+                                                           f0s, f0et=5.0, f0_refinement_range_cents=16,
+                                                           min_voiced_segment_ms=voiced_th_ms)
     time_refine = taymit()
     post_anal_coverage = sum(f0s > 0) / len(f0s)
     coverage = post_anal_coverage / pre_anal_coverage
@@ -326,13 +326,15 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
 
 
 def process_folder(path_folder_audio, path_folder_f0, path_folder_synth, pitch_shift=False,
-                   instrument_detector=None, instrument_detector_normalize=False, n_jobs=4):
+                   instrument_detector=None, instrument_detector_normalize=False, refine_twm=True,
+                   th_lc=0.2, th_hc=0.7, voiced_th_ms=100, n_jobs=4):
     if not os.path.exists(path_folder_synth):
         # Create a new directory because it does not exist 
         os.makedirs(path_folder_synth)
     Parallel(n_jobs=n_jobs)(delayed(process_file)(
         pr_file, path_folder_audio, path_folder_f0, path_folder_synth, pitch_shift=pitch_shift,
-        instrument_detector=instrument_detector, instrument_detector_normalize=instrument_detector_normalize)
+        instrument_detector=instrument_detector, instrument_detector_normalize=instrument_detector_normalize,
+        th_lc=th_lc, th_hc=th_hc, voiced_th_ms=voiced_th_ms, refine_twm=refine_twm)
                             for pr_file in sorted(os.listdir(path_folder_audio)))
     return
 
@@ -341,71 +343,93 @@ if __name__ == '__main__':
 
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes")
     names = sorted([_ for _ in os.listdir(dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
+    model = "original"
+    mode_ablation = True  # only use for the ablation study *standard analysis-synthesis without the instrument model
 
-    instrument_model_method = "normalized"
-    estimate_instrument_model = True
-    inst_model_use_existing_anal_files = False  #todo just a workaround for the memory leak!
-    model = "april3"
+    if not mode_ablation:
+        # Instrument model is used for the standard implementation, below is the code to create the
+        # instrument timbre model
+        instrument_model_method = "normalized"
+        estimate_instrument_model = True
+        inst_model_use_existing_anal_files = False  #todo just a workaround for the memory leak!
 
-    if estimate_instrument_model:
-        print("started instrument model estimation")
-        # combine instrument model estimation with the synthesis. The analysis for the instrument estimation takes
-        # a long while, so only do it when really needed!
-        if not inst_model_use_existing_anal_files:
+        if estimate_instrument_model:
+            print("started instrument model estimation")
+            # combine instrument model estimation with the synthesis. The analysis for the instrument estimation takes
+            # a long while, so only do it when really needed!
+            if not inst_model_use_existing_anal_files:
+                for name in names:
+                    analyze_folder(path_folder_audio=os.path.join(dataset_folder, name),
+                                   path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", model, name),
+                                   path_folder_anal=os.path.join(dataset_folder, "anal", name),
+                                   confidence_threshold=0.9,
+                                   n_jobs=16)
+            data, pitch_content = [], []
             for name in names:
-                analyze_folder(path_folder_audio=os.path.join(dataset_folder, name),
-                               path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", model, name),
-                               path_folder_anal=os.path.join(dataset_folder, "anal", name),
-                               confidence_threshold=0.9,
-                               n_jobs=16)
-        data, pitch_content = [], []
-        for name in names:
-            print("started processing the folder ", name)
-            files_anal = os.path.join(dataset_folder, "anal", name)
-            for file in sorted(os.listdir(files_anal)):
-                file_content = np.load(os.path.join(files_anal, file))
-                data.append(file_content['hmag'])
-                pitch_content.append(file_content['f0'])
+                print("started processing the folder ", name)
+                files_anal = os.path.join(dataset_folder, "anal", name)
+                for file in sorted(os.listdir(files_anal)):
+                    file_content = np.load(os.path.join(files_anal, file))
+                    data.append(file_content['hmag'])
+                    pitch_content.append(file_content['f0'])
 
-        data = np.vstack(data)
-        pitch_content = np.hstack(pitch_content)
-        pitch_bins = np.linspace(150, 1000, 18)
-        pitch_hist, _ = np.histogram(pitch_content, bins=pitch_bins)
-        pitch_dist = pitch_hist / len(data)
+            data = np.vstack(data)
+            pitch_content = np.hstack(pitch_content)
+            pitch_bins = np.linspace(150, 1000, 18)
+            pitch_hist, _ = np.histogram(pitch_content, bins=pitch_bins)
+            pitch_dist = pitch_hist / len(data)
 
-        print("Pitch distribution for the instrument model:")
-        for f, p in zip(pitch_bins, pitch_dist):
-            print("%4d" % f, "*" * int(p * 100))
+            print("Pitch distribution for the instrument model:")
+            for f, p in zip(pitch_bins, pitch_dist):
+                print("%4d" % f, "*" * int(p * 100))
+
+            if instrument_model_method == "normalized":
+                data = data+100
+                data = data[data[:, 0] > 0]
+                data = data/data[:, 0][:, None]
+            print('training instrument model')
+            instrument_timbre_detector = EllipticEnvelope().fit(data)
+            with open(os.path.join(dataset_folder, 'EllipticEnvelope_' + instrument_model_method + '.pkl'), 'wb') as outp:
+                pickle.dump(instrument_timbre_detector, outp, pickle.HIGHEST_PROTOCOL)
+            print("FINISHED INSTRUMENT MODEL ESTIMATION!!! \n\n\n\n\n\n\n\n NOW THE SYNTHESIS STARTS!!!")
 
         if instrument_model_method == "normalized":
-            data = data+100
-            data = data[data[:, 0] > 0]
-            data = data/data[:, 0][:, None]
-        print('training instrument model')
-        instrument_timbre_detector = EllipticEnvelope().fit(data)
-        with open(os.path.join(dataset_folder, 'EllipticEnvelope_' + instrument_model_method + '.pkl'), 'wb') as outp:
-            pickle.dump(instrument_timbre_detector, outp, pickle.HIGHEST_PROTOCOL)
-        print("FINISHED INSTRUMENT MODEL ESTIMATION!!! \n\n\n\n\n\n\n\n NOW THE SYNTHESIS STARTS!!!")
+            instrument_model_file = os.path.join(dataset_folder, 'EllipticEnvelope_' + instrument_model_method + '.pkl')
+            instrument_model_normalize = True
+        else:
+            instrument_model_file = os.path.join(dataset_folder, 'EllipticEnvelopeInstrumentModel.pkl')
+            instrument_model_normalize = False
+        with open(instrument_model_file, 'rb') as modelfile:
+            instrument_timbre_detector = pickle.load(modelfile)
 
-    if instrument_model_method == "normalized":
-        instrument_model_file = os.path.join(dataset_folder, 'EllipticEnvelope_' + instrument_model_method + '.pkl')
-        instrument_model_normalize = True
-    else:
-        instrument_model_file = os.path.join(dataset_folder, 'EllipticEnvelopeInstrumentModel.pkl')
-        instrument_model_normalize = False
-    with open(instrument_model_file, 'rb') as modelfile:
-        instrument_timbre_detector = pickle.load(modelfile)
+        low_confidence_threshold = 0.2
+        high_confidence_threshold = 0.7
+        min_voiced_th_ms = 100
+        refine_estimates_with_twm = True
+        create_pitch_shifted_versions = True
+
+    else: # for the ablation study, simple analysis-synthesis described in Salomon paper.
+        instrument_timbre_detector=None
+        instrument_model_normalize=False
+        low_confidence_threshold = 0.5
+        high_confidence_threshold = 0.5
+        min_voiced_th_ms = 50
+        refine_estimates_with_twm = False
+        create_pitch_shifted_versions = False
+
     for name in sorted(names)[::-1]:
         time_grade = taymit()
         print("Started processing grade ", name)
         process_folder(path_folder_audio=os.path.join(dataset_folder, name),
                        path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", model, name),
-                       path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
+                       path_folder_synth=os.path.join(dataset_folder, "synthesized_ablation", name),
                        instrument_detector=instrument_timbre_detector,
                        instrument_detector_normalize=instrument_model_normalize,
-                       pitch_shift=True, n_jobs=16)
-        synth2tfrecord_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized", name),
-                              path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord", name),
+                       pitch_shift=create_pitch_shifted_versions,
+                       th_lc=low_confidence_threshold, th_hc=high_confidence_threshold,
+                       voiced_th_ms=min_voiced_th_ms, refine_twm=refine_estimates_with_twm, n_jobs=16)
+        synth2tfrecord_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized_ablation", name),
+                              path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord_ablation", name),
                               n_jobs=16)
         time_grade = taymit() - time_grade
         print("Grade {:s} took {:.3f}".format(name, time_grade))
