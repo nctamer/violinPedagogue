@@ -56,7 +56,7 @@ def urmp_extract_pitch_with_model(model_name, instrument='vn',
     audio_files, output_f0_files = [], []
     for track in sorted(os.listdir(dataset_folder)):
         if track[0].isdigit():
-            stems = sorted(glob.glob(os.path.join(dataset_folder, track, "AuSep*" + instrument + "*.wav")))
+            stems = sorted(glob.glob(os.path.join(dataset_folder, track, "AuSep*_" + instrument + "_*.wav")))
             if len(stems) > 0:
                 if not os.path.exists(os.path.join(out_folder, track)):
                     # Create a new directory because it does not exist
@@ -150,8 +150,8 @@ def urmp_evaluate_model(model_name, instrument='vn',
                         urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP")):
     dataset_folder = os.path.join(urmp_path, "Dataset")
     pitch_tracks_folder = os.path.join(urmp_path, 'pitch_tracks', model_name, instrument)
-    predicted_file_list = sorted(glob.glob(os.path.join(pitch_tracks_folder, "*/AuSep*" + instrument + "*.f0.csv")))
-    ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*" + instrument + "*.txt")))
+    predicted_file_list = sorted(glob.glob(os.path.join(pitch_tracks_folder, "*/AuSep*_" + instrument + "_*.f0.csv")))
+    ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*_" + instrument + "_*.txt")))
     assert len(predicted_file_list) == len(
         ground_file_list)  # to ensure we have pitch tracks for all the instrument data
     return evaluate(predicted_file_list=predicted_file_list, ground_truth_file_list=ground_file_list)
@@ -160,13 +160,13 @@ def urmp_evaluate_model(model_name, instrument='vn',
 def urmp_evaluate_per_instrument(instrument="vn",
                                  urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP")):
     dataset_folder = os.path.join(urmp_path, "Dataset")
-    ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*" + instrument + "*.txt")))
+    ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*_" + instrument + "_*.txt")))
     evaluation = {}
     for model_name in os.listdir(os.path.join(urmp_path, 'pitch_tracks')):
         pitch_tracks_folder = os.path.join(urmp_path, 'pitch_tracks', model_name, instrument)
         if os.path.isdir(pitch_tracks_folder):
             predicted_file_list = sorted(glob.glob(os.path.join(pitch_tracks_folder,
-                                                                "*/AuSep*" + instrument + "*.f0.csv")))
+                                                                "*/AuSep*_" + instrument + "_*.f0.csv")))
             assert len(predicted_file_list) == len(ground_file_list)
             evaluation[model_name] = evaluate(predicted_file_list=predicted_file_list,
                                               ground_truth_file_list=ground_file_list)
