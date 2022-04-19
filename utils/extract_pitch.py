@@ -17,6 +17,8 @@ except ModuleNotFoundError:
     import marl_crepe as mycrepe
 
 
+URMP_INSTRUMENTS = ["vn", "va", "vc", "db", "fl", "ob", "cl", "sax", "bn", "tpt", "hn", "tbn", "tba"]
+
 def accuracies(true_cents, predicted_cents, cent_tolerance=50):
     from mir_eval.melody import raw_pitch_accuracy, raw_chroma_accuracy
     assert true_cents.shape == predicted_cents.shape
@@ -47,7 +49,7 @@ def urmp_extract_pitch_with_model(model_name, instrument='vn',
                                   urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP"),
                                   viterbi=False, verbose=1):
     dataset_folder = os.path.join(urmp_path, "Dataset")
-    out_folder = os.path.join(urmp_path, 'pitch_tracks', model_name)
+    out_folder = os.path.join(urmp_path, 'pitch_tracks', model_name, instrument)
 
     model_path = os.path.join('..', 'crepe', 'models', model_name + '.h5')
 
@@ -65,6 +67,15 @@ def urmp_extract_pitch_with_model(model_name, instrument='vn',
                     [os.path.join(out_folder, track, os.path.basename(_)[:-3] + "f0.csv") for _ in new_audio_files])
 
     predict_from_file_list(audio_files, output_f0_files, model_path, viterbi=viterbi, verbose=verbose)
+    return
+
+
+def urmp_all_instruments_extract_pitch_with_model(model_name, urmp_path=os.path.join(os.path.expanduser("~"),
+                                                                                     "violindataset", "URMP"),
+                                                  viterbi=False, verbose=1):
+    for instrument in URMP_INSTRUMENTS:
+        urmp_extract_pitch_with_model(model_name, urmp_path=urmp_path,
+                                      instrument=instrument, viterbi=viterbi, verbose=verbose)
     return
 
 
@@ -138,7 +149,7 @@ def evaluate(predicted_file_list, ground_truth_file_list):
 def urmp_evaluate_model(model_name, instrument='vn',
                         urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP")):
     dataset_folder = os.path.join(urmp_path, "Dataset")
-    pitch_tracks_folder = os.path.join(urmp_path, 'pitch_tracks', model_name)
+    pitch_tracks_folder = os.path.join(urmp_path, 'pitch_tracks', model_name, instrument)
     predicted_file_list = sorted(glob.glob(os.path.join(pitch_tracks_folder, "*/AuSep*" + instrument + "*.f0.csv")))
     ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*" + instrument + "*.txt")))
     assert len(predicted_file_list) == len(
@@ -146,12 +157,13 @@ def urmp_evaluate_model(model_name, instrument='vn',
     return evaluate(predicted_file_list=predicted_file_list, ground_truth_file_list=ground_file_list)
 
 
-def urmp_evaluate_all(instrument="vn", urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP")):
+def urmp_evaluate_per_instrument(instrument="vn",
+                                 urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP")):
     dataset_folder = os.path.join(urmp_path, "Dataset")
     ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*" + instrument + "*.txt")))
     evaluation = {}
     for model_name in os.listdir(os.path.join(urmp_path, 'pitch_tracks')):
-        pitch_tracks_folder = os.path.join(urmp_path, 'pitch_tracks', model_name)
+        pitch_tracks_folder = os.path.join(urmp_path, 'pitch_tracks', model_name, instrument)
         if os.path.isdir(pitch_tracks_folder):
             predicted_file_list = sorted(glob.glob(os.path.join(pitch_tracks_folder,
                                                                 "*/AuSep*" + instrument + "*.f0.csv")))
@@ -163,19 +175,27 @@ def urmp_evaluate_all(instrument="vn", urmp_path=os.path.join(os.path.expanduser
             for key, value in evaluation[model_name].items():
                 eval_string = eval_string + "{:s}: {:.3f}%   ".format(key, 100 * value)
             print(eval_string + "\n")
-    json.dump(evaluation, open(os.path.join(urmp_path, "pitch_tracks", "evaluation.json"), "w"))
+    json.dump(evaluation, open(os.path.join(urmp_path, "pitch_tracks", instrument + "_evaluation.json"), "w"))
+    return
+
+
+def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP")):
+    for instrument in URMP_INSTRUMENTS:
+        urmp_evaluate_per_instrument(instrument=instrument, urmp_path=urmp_path)
+    return
 
 
 if __name__ == '__main__':
-    new_model_name = 'april3'
-    urmp_extract_pitch_with_model(new_model_name, instrument="vn", viterbi=False, verbose=1)
-    urmp_evaluate_all(instrument="vn")
+    new_model_name = 'original'
+    urmp_all_instruments_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)
+    urmp_evaluate_all()
 
+    """
     extract_pitch_with_model(model_name=new_model_name,
                              main_dataset_folder=os.path.join(os.path.expanduser("~"),
                                                               "violindataset", "monophonic_etudes"),
                              save_activation=False, viterbi=True, verbose=1)
-
+    """
 
     #for new_model_name in new_model_names:
     #    extract_pitch_with_model(model_name=new_model_name, save_activation=True, viterbi=True, verbose=0)
