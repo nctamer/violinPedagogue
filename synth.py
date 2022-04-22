@@ -414,7 +414,7 @@ if __name__ == '__main__':
         low_confidence_threshold = 0.5
         high_confidence_threshold = 0.5
         min_voiced_th_ms = 50
-        refine_estimates_with_twm = False
+        refine_estimates_with_twm = True
         create_pitch_shifted_versions = False
 
     for name in sorted(names)[::-1]:
