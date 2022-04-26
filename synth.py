@@ -10,6 +10,7 @@ import sys
 import pickle
 import random
 from pathlib import Path
+
 if os.path.join(Path().absolute(), 'sms_tools', 'models') not in sys.path:
     sys.path.append(os.path.join(Path().absolute(), 'sms_tools', 'models'))
 from utils.synth2tfrecord import process_folder as synth2tfrecord_folder
@@ -26,17 +27,17 @@ from time import time as taymit
 
 HOP_SIZE = 128
 SAMPLING_RATE = 44100
-WINDOW_SIZE = 1025  #int(2*(((1024/16000)*SAMPLING_RATE)//2))-1
+WINDOW_SIZE = 1025  # int(2*(((1024/16000)*SAMPLING_RATE)//2))-1
 WINDOW_TYPE = 'blackmanharris'
 LOWEST_NOTE_ALLOWED_HZ = 180
 
 
 def silence_segments_one_run(confidences, confidence_threshold, segment_len_th):
-    conf_bool = np.array(confidences>confidence_threshold).reshape(-1)
+    conf_bool = np.array(confidences > confidence_threshold).reshape(-1)
     absdiff = np.abs(np.diff(np.concatenate(([False], conf_bool, [False]))))
     ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
-    segment_durs = np.diff(ranges,axis=1)
-    valid_segments = ranges[np.repeat(segment_durs>segment_len_th, repeats=2, axis=1)].reshape(-1, 2)
+    segment_durs = np.diff(ranges, axis=1)
+    valid_segments = ranges[np.repeat(segment_durs > segment_len_th, repeats=2, axis=1)].reshape(-1, 2)
     voiced = np.zeros(len(confidences), dtype=bool)
     for segment in valid_segments:
         voiced[segment[0]:segment[1]] = True
@@ -53,18 +54,18 @@ def silence_unvoiced_segments(pitch_track_csv, low_confidence_threshold=0.2,
     :param min_voiced_segment_ms: voiced segments shorter than the specified lenght are discarded
     :return: input csv file with the silenced segments
     """
-    annotation_interval_ms = 1000*pitch_track_csv.loc[:1, "time"].diff()[1]
-    voiced_th = int(np.ceil(min_voiced_segment_ms/annotation_interval_ms))
+    annotation_interval_ms = 1000 * pitch_track_csv.loc[:1, "time"].diff()[1]
+    voiced_th = int(np.ceil(min_voiced_segment_ms / annotation_interval_ms))
 
     # we do not accept the segment if a close neighbors do not have a confidence > 0.7
-    smoothened_confidences = medfilt(pitch_track_csv["confidence"], kernel_size=2*(voiced_th//2)+1)
+    smoothened_confidences = medfilt(pitch_track_csv["confidence"], kernel_size=2 * (voiced_th // 2) + 1)
     smooth_voiced = silence_segments_one_run(smoothened_confidences,
                                              confidence_threshold=high_confidence_threshold, segment_len_th=voiced_th)
 
     # we also do not accept the pitch values if the individual confidences are really low
     hard_voiced = silence_segments_one_run(pitch_track_csv["confidence"],
                                            confidence_threshold=low_confidence_threshold, segment_len_th=voiced_th)
-    
+
     # we accept the intersection of these two zones
     voiced = np.logical_and(smooth_voiced, hard_voiced)
 
@@ -121,7 +122,7 @@ def interpolate_f0_to_sr(pitch_track_csv, audio, sr=SAMPLING_RATE, hop_size=HOP_
                              kind="nearest", fill_value="extrapolate")
     start_frame = 0  # I was true at first! It starts from zero!! int(np.floor((WINDOW_SIZE + 1) / 2))
     end_frame = len(audio) - (len(audio) % hop_size) + start_frame
-    time = np.array(range(start_frame, end_frame+1, hop_size)) / sr
+    time = np.array(range(start_frame, end_frame + 1, hop_size)) / sr
     pitch_track_np = f(time)
     confidence_np = c(time)
     pitch_track_np[pitch_track_np < 10] = 0  # interpolation might introduce odd frequencies
@@ -163,14 +164,14 @@ def refine_harmonics_twm(hfreq, hmag, hphases, f0, f0et=5.0, f0_refinement_range
             pmag = hmag[frame]
             f0_twm, f0err_twm = refinef0Twm(pfreq, pmag, f0_frame, refinement_range_cents=f0_refinement_range_cents)
             if f0err_twm < f0et:
-                hfreq[frame] = f0_twm * np.round(pfreq/f0_twm)
+                hfreq[frame] = f0_twm * np.round(pfreq / f0_twm)
                 f0[frame] = f0_twm
             else:
                 f0[frame] = 0
                 hfreq[frame] = 0
                 hmag[frame] = -100
-    
-    min_voiced_segment_len = int(np.ceil((min_voiced_segment_ms/1000)/(HOP_SIZE/SAMPLING_RATE)))
+
+    min_voiced_segment_len = int(np.ceil((min_voiced_segment_ms / 1000) / (HOP_SIZE / SAMPLING_RATE)))
     voiced = silence_segments_one_run(f0, 0, min_voiced_segment_len)
     f0[~voiced] = 0
     hfreq[~voiced] = 0
@@ -210,11 +211,11 @@ def apply_pitch_filter(pitch_track_csv, min_chunk_size=20, median=True, confiden
     """
     if median:
         # use filter when confidence is small
-        filter_bool = np.array(pitch_track_csv["confidence"]<confidence_threshold).reshape(-1)
+        filter_bool = np.array(pitch_track_csv["confidence"] < confidence_threshold).reshape(-1)
         # but in the voiced regions
-        filter_bool = np.logical_and(filter_bool, np.array(pitch_track_csv["frequency"]>0).reshape(-1))
+        filter_bool = np.logical_and(filter_bool, np.array(pitch_track_csv["frequency"] > 0).reshape(-1))
         # ensure the filter size is odd
-        filtered_est = medfilt(pitch_track_csv["frequency"], kernel_size=(2*(min_chunk_size//2))+1)
+        filtered_est = medfilt(pitch_track_csv["frequency"], kernel_size=(2 * (min_chunk_size // 2)) + 1)
         pitch_track_csv.loc[filter_bool, "frequency"] = filtered_est[filter_bool]
     else:
         pitch_filter = PitchFilter(min_chunk_size=min_chunk_size)
@@ -230,7 +231,7 @@ def analyze_file(filename, path_folder_audio, path_folder_f0, path_folder_anal, 
     f0s = pd.read_csv(os.path.join(path_folder_f0, filename[:-3] + "f0.csv"))
     f0s, conf, time = interpolate_f0_to_sr(f0s, audio)
     time_load = taymit()
-    print("loading {:s} took {:.3f}".format(filename, time_load-time_start))
+    print("loading {:s} took {:.3f}".format(filename, time_load - time_start))
     hfreqs, hmags, _ = anal(audio, f0s, n_harmonics=12)
     f0s = f0s[:len(hmags)]
     conf = conf[:len(hmags)]
@@ -248,8 +249,8 @@ def analyze_file(filename, path_folder_audio, path_folder_f0, path_folder_anal, 
     min_voiced_segment_len = int(np.ceil((min_voiced_segment_ms / 1000) / (HOP_SIZE / SAMPLING_RATE)))
     valid_bool = silence_segments_one_run(valid_bool, 0, min_voiced_segment_len)  # if keeps high for some duration
 
-    print("anal {:s} took {:.3f}. coverage: {:.3f}".format(filename, time_anal-time_load,
-                                                           sum(valid_bool)/len(valid_bool)))
+    print("anal {:s} took {:.3f}. coverage: {:.3f}".format(filename, time_anal - time_load,
+                                                           sum(valid_bool) / len(valid_bool)))
     np.savez_compressed(os.path.join(path_folder_anal, filename[:-3] + "npz"),
                         f0=f0s[valid_bool], hmag=hmags[valid_bool, :12])
     return
@@ -273,19 +274,19 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
     f0s = pd.read_csv(os.path.join(path_folder_f0, filename[:-3] + "f0.csv"))
     f0s["confidence"] = f0s["confidence"].fillna(0)
     pre_anal_coverage = f0s['confidence'] > th_lc
-    pre_anal_coverage = sum(pre_anal_coverage)/len(pre_anal_coverage)
+    pre_anal_coverage = sum(pre_anal_coverage) / len(pre_anal_coverage)
     f0s = silence_unvoiced_segments(f0s, low_confidence_threshold=th_lc, high_confidence_threshold=th_hc,
                                     min_voiced_segment_ms=voiced_th_ms)
     # f0s = apply_pitch_filter(f0s, min_chunk_size=21, median=True, confidence_threshold=th_hc)
     f0s, conf, time = interpolate_f0_to_sr(f0s, audio)
     time_load = taymit()
-    print("loading {:s} took {:.3f}".format(filename, time_load-time_start))
+    print("loading {:s} took {:.3f}".format(filename, time_load - time_start))
     hfreqs, hmags, hphases = anal(audio, f0s, n_harmonics=40)
     f0s = f0s[:len(hmags)]
     conf = conf[:len(hmags)]
     time = time[:len(hmags)]
     time_anal = taymit()
-    print("anal {:s} took {:.3f}".format(filename, time_anal-time_load))
+    print("anal {:s} took {:.3f}".format(filename, time_anal - time_load))
     if instrument_detector is not None:
         hfreqs, hmags, hphases, f0 = supress_timbre_anomalies(instrument_detector, hfreqs, hmags, hphases, f0s,
                                                               instrument_detector_normalize)
@@ -297,11 +298,11 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
     post_anal_coverage = sum(f0s > 0) / len(f0s)
     coverage = post_anal_coverage / pre_anal_coverage
     print("refining parameters for {:s} took {:.3f}. coverage: {:.3f}".format(filename,
-                                                                              time_refine-time_anal,
+                                                                              time_refine - time_anal,
                                                                               coverage))
     if sawtooth_synth:
-        hmags[f0s>0] = -30 - 20*np.log10(np.arange(1,41))
-        hfreqs[f0s>0] = np.dot(hfreqs[f0s>0][:,0][:,np.newaxis], np.arange(1,41)[np.newaxis,:])
+        hmags[f0s > 0] = -30 - 20 * np.log10(np.arange(1, 41))
+        hfreqs[f0s > 0] = np.dot(hfreqs[f0s > 0][:, 0][:, np.newaxis], np.arange(1, 41)[np.newaxis, :])
         hphases = np.array([])
     harmonic_audio = SM.sineModelSynth(hfreqs, hmags, hphases, N=512, H=HOP_SIZE, fs=SAMPLING_RATE)
     sf.write(os.path.join(path_folder_synth, filename[:-3] + "RESYN.wav"), harmonic_audio, 44100, 'PCM_24')
@@ -324,8 +325,8 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
                   float_format='%.6f')
 
     time_synth = taymit()
-    print("synthesizing {:s} took {:.3f}. Total resynthesis took {:.3f}".format(filename, time_synth-time_refine,
-                                                                                time_synth-time_load))
+    print("synthesizing {:s} took {:.3f}. Total resynthesis took {:.3f}".format(filename, time_synth - time_refine,
+                                                                                time_synth - time_load))
     return
 
 
@@ -333,7 +334,7 @@ def process_folder(path_folder_audio, path_folder_f0, path_folder_synth, pitch_s
                    instrument_detector=None, instrument_detector_normalize=False, refine_twm=True,
                    th_lc=0.2, th_hc=0.7, voiced_th_ms=100, sawtooth_synth=False, n_jobs=4):
     if not os.path.exists(path_folder_synth):
-        # Create a new directory because it does not exist 
+        # Create a new directory because it does not exist
         os.makedirs(path_folder_synth)
     Parallel(n_jobs=n_jobs)(delayed(process_file)(
         pr_file, path_folder_audio, path_folder_f0, path_folder_synth, pitch_shift=pitch_shift,
@@ -348,14 +349,14 @@ if __name__ == '__main__':
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes")
     names = sorted([_ for _ in os.listdir(dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
     model = "original"
-    mode_ablation = True  # only use for the ablation study *standard analysis-synthesis without the instrument model
+    mode_ablation = False  # only use for the ablation study *standard analysis-synthesis without the instrument model
 
     if not mode_ablation:
         # Instrument model is used for the standard implementation, below is the code to create the
         # instrument timbre model
         instrument_model_method = "normalized"
-        estimate_instrument_model = False
-        inst_model_use_existing_anal_files = False  #todo just a workaround for the memory leak!
+        estimate_instrument_model = True
+        inst_model_use_existing_anal_files = True  # todo just a workaround for the memory leak!
 
         if estimate_instrument_model:
             print("started instrument model estimation")
@@ -379,6 +380,31 @@ if __name__ == '__main__':
 
             data = np.vstack(data)
             pitch_content = np.hstack(pitch_content)
+            order = pitch_content.argsort()
+            pitch_content = pitch_content[order]
+            data = data[order]
+            data = data - data[:, 0][:, np.newaxis]
+
+            num_filters = 120
+            mids = np.linspace(pitch_content.min(), pitch_content.max(), num_filters + 2)
+            increment = np.diff(mids).mean()
+            instrument_timbre_detectors = {}
+
+            pv = np.zeros(num_filters)
+            pd = np.zeros((num_filters, data.shape[-1] - 1))
+            for n in range(1, num_filters + 1):
+                mid = mids[n]
+                start = mid - increment
+                end = mid + increment
+                relevant = np.logical_and(pitch_content > start, pitch_content < end)
+                relevant_data = data[relevant]
+                instrument_timbre_detector = EllipticEnvelope(contamination=0.2).fit(relevant_data[:, 1:])
+                instrument_timbre_detectors[mid] = instrument_timbre_detector
+                pv[n] = (start + end) / 2
+                print(mid, n, start, end, len(relevant_data))
+                pd[n] = instrument_timbre_detector.location_
+                print(np.array2string(pd[n], precision=2))
+
             pitch_bins = np.linspace(150, 1000, 18)
             pitch_hist, _ = np.histogram(pitch_content, bins=pitch_bins)
             pitch_dist = pitch_hist / len(data)
@@ -387,35 +413,25 @@ if __name__ == '__main__':
             for f, p in zip(pitch_bins, pitch_dist):
                 print("%4d" % f, "*" * int(p * 100))
 
-            if instrument_model_method == "normalized":
-                data = data+100
-                data = data[data[:, 0] > 0]
-                data = data/data[:, 0][:, None]
-            print('training instrument model')
-            instrument_timbre_detector = EllipticEnvelope().fit(data)
-            with open(os.path.join(dataset_folder, 'EllipticEnvelope_' + instrument_model_method + '.pkl'), 'wb') as outp:
-                pickle.dump(instrument_timbre_detector, outp, pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(dataset_folder, 'instrument_model.pkl'), 'wb') as outp:
+                pickle.dump(instrument_timbre_detectors, outp, pickle.HIGHEST_PROTOCOL)
             print("FINISHED INSTRUMENT MODEL ESTIMATION!!! \n\n\n\n\n\n\n\n NOW THE SYNTHESIS STARTS!!!")
 
-        if instrument_model_method == "normalized":
-            instrument_model_file = os.path.join(dataset_folder, 'EllipticEnvelope_' + instrument_model_method + '.pkl')
-            instrument_model_normalize = True
-        else:
-            instrument_model_file = os.path.join(dataset_folder, 'EllipticEnvelopeInstrumentModel.pkl')
-            instrument_model_normalize = False
+        instrument_model_file = os.path.join(dataset_folder, 'instrument_model.pkl')
         with open(instrument_model_file, 'rb') as modelfile:
             instrument_timbre_detector = pickle.load(modelfile)
+        instrument_model_normalize = True
 
         low_confidence_threshold = 0.2
         high_confidence_threshold = 0.7
         min_voiced_th_ms = 100
         refine_estimates_with_twm = True
         create_pitch_shifted_versions = True
-        use_sawtooth_timbre = True
+        use_sawtooth_timbre = False
 
-    else: # for the ablation study, simple analysis-synthesis described in Salomon paper.
-        instrument_timbre_detector=None
-        instrument_model_normalize=False
+    else:  # for the ablation study, simple analysis-synthesis described in Salomon paper.
+        instrument_timbre_detector = None
+        instrument_model_normalize = False
         low_confidence_threshold = 0.3
         high_confidence_threshold = 0.7
         min_voiced_th_ms = 50
