@@ -434,9 +434,9 @@ if __name__ == '__main__':
                        pitch_shift=create_pitch_shifted_versions,
                        th_lc=low_confidence_threshold, th_hc=high_confidence_threshold,
                        voiced_th_ms=min_voiced_th_ms, refine_twm=refine_estimates_with_twm,
-                       sawtooth_synth=use_sawtooth_timbre, n_jobs=1)
+                       sawtooth_synth=use_sawtooth_timbre, n_jobs=16)
         synth2tfrecord_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized_sawtooth", name),
                               path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord_sawtooth", name),
-                              n_jobs=1)
+                              n_jobs=16)
         time_grade = taymit() - time_grade
         print("Grade {:s} took {:.3f}".format(name, time_grade))
