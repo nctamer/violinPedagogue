@@ -439,6 +439,7 @@ if __name__ == '__main__':
         create_pitch_shifted_versions = False
         use_sawtooth_timbre = True
 
+    """
     for name in sorted(names)[::-1]:
         time_grade = taymit()
         print("Started processing grade ", name)
@@ -456,3 +457,4 @@ if __name__ == '__main__':
                               n_jobs=16)
         time_grade = taymit() - time_grade
         print("Grade {:s} took {:.3f}".format(name, time_grade))
+    """
