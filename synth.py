@@ -294,12 +294,9 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
     print("anal {:s} took {:.3f}".format(filename, time_anal - time_load))
     if instrument_detector is not None:
         hfreqs, hmags, hphases, f0 = supress_timbre_anomalies(instrument_detector, hfreqs, hmags, hphases, f0s)
-        f0et = 10.0
-    else:
-        f0et = 5.0
     if refine_twm:
         hfreqs, hmags, hphases, f0s = refine_harmonics_twm(hfreqs, hmags, hphases,
-                                                           f0s, f0et=f0et, f0_refinement_range_cents=16,
+                                                           f0s, f0et=5.0, f0_refinement_range_cents=16,
                                                            min_voiced_segment_ms=voiced_th_ms)
     time_refine = taymit()
     post_anal_coverage = sum(f0s > 0) / len(f0s)
