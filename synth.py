@@ -354,6 +354,7 @@ if __name__ == '__main__':
     if not mode_ablation:
         # Instrument model is used for the standard implementation, below is the code to create the
         # instrument timbre model
+        num_filters = 50
         instrument_model_method = "normalized"
         estimate_instrument_model = True
         inst_model_use_existing_anal_files = True  # todo just a workaround for the memory leak!
@@ -385,7 +386,6 @@ if __name__ == '__main__':
             data = data[order]
             data = data - data[:, 0][:, np.newaxis]
 
-            num_filters = 50
             mids = np.linspace(pitch_content.min(), pitch_content.max(), num_filters + 2)
             increment = np.diff(mids).mean()
             instrument_timbre_detectors = {}
@@ -409,11 +409,11 @@ if __name__ == '__main__':
             for f, p in zip(pitch_bins, pitch_dist):
                 print("%4d" % f, "*" * int(p * 100))
 
-            with open(os.path.join(dataset_folder, 'instrument_model_' + num_filters + '.pkl'), 'wb') as outp:
+            with open(os.path.join(dataset_folder, 'instrument_model_' + str(num_filters) + '.pkl'), 'wb') as outp:
                 pickle.dump(instrument_timbre_detectors, outp, pickle.HIGHEST_PROTOCOL)
             print("FINISHED INSTRUMENT MODEL ESTIMATION!!! \n\n\n\n\n\n\n\n NOW THE SYNTHESIS STARTS!!!")
 
-        instrument_model_file = os.path.join(dataset_folder, 'instrument_model_' + num_filters + '.pkl')
+        instrument_model_file = os.path.join(dataset_folder, 'instrument_model_' + str(num_filters) + '.pkl')
         with open(instrument_model_file, 'rb') as modelfile:
             instrument_timbre_detector = pickle.load(modelfile)
         instrument_model_normalize = True
