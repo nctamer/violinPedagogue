@@ -358,10 +358,10 @@ if __name__ == '__main__':
     if use_instrument_model:
         # Instrument model is used for the standard implementation, below is the code to create the
         # instrument timbre model
-        num_filters = 50
+        num_filters = 100
         contamination = 0.05
         instrument_model_method = "normalized"
-        estimate_instrument_model = False
+        estimate_instrument_model = True
         inst_model_use_existing_anal_files = True  # todo just a workaround for the memory leak!
 
         if estimate_instrument_model:
