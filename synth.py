@@ -389,9 +389,7 @@ if __name__ == '__main__':
             mids = np.linspace(pitch_content.min(), pitch_content.max(), num_filters + 2)
             increment = np.diff(mids).mean()
             instrument_timbre_detectors = {}
-
-            pv = np.zeros(num_filters)
-            pd = np.zeros((num_filters, data.shape[-1] - 1))
+            print('range:', mids.min(), mids.max())
             for n in range(1, num_filters + 1):
                 mid = mids[n]
                 start = mid - increment
@@ -400,10 +398,8 @@ if __name__ == '__main__':
                 relevant_data = data[relevant]
                 instrument_timbre_detector = EllipticEnvelope(contamination=0.2).fit(relevant_data[:, 1:])
                 instrument_timbre_detectors[mid] = instrument_timbre_detector
-                pv[n] = (start + end) / 2
                 print(mid, n, start, end, len(relevant_data))
-                pd[n] = instrument_timbre_detector.location_
-                print(np.array2string(pd[n], precision=2))
+                print(np.array2string(instrument_timbre_detector.location_, precision=2))
 
             pitch_bins = np.linspace(150, 1000, 18)
             pitch_hist, _ = np.histogram(pitch_content, bins=pitch_bins)
