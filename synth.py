@@ -356,7 +356,7 @@ if __name__ == '__main__':
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes")
     names = sorted([_ for _ in os.listdir(dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
     model = "original"
-    use_instrument_model = False  # only use for the ablation study *standard analysis-synthesis without the instrument model
+    use_instrument_model = True  # only use for the ablation study *standard analysis-synthesis without the instrument model
 
     if use_instrument_model:
         # Instrument model is used for the standard implementation, below is the code to create the
