@@ -356,15 +356,15 @@ if __name__ == '__main__':
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes")
     names = sorted([_ for _ in os.listdir(dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
     model = "original"
-    mode_ablation = False  # only use for the ablation study *standard analysis-synthesis without the instrument model
+    use_instrument_model = False  # only use for the ablation study *standard analysis-synthesis without the instrument model
 
-    if not mode_ablation:
+    if use_instrument_model:
         # Instrument model is used for the standard implementation, below is the code to create the
         # instrument timbre model
         num_filters = 50
         contamination = 0.05
         instrument_model_method = "normalized"
-        estimate_instrument_model = True
+        estimate_instrument_model = False
         inst_model_use_existing_anal_files = True  # todo just a workaround for the memory leak!
 
         if estimate_instrument_model:
@@ -427,39 +427,35 @@ if __name__ == '__main__':
         with open(instrument_model_file, 'rb') as modelfile:
             instrument_timbre_detector = pickle.load(modelfile)
 
-        low_confidence_threshold = 0.2
-        high_confidence_threshold = 0.6
-        min_voiced_th_ms = 100
-        refine_estimates_with_twm = True
-        create_pitch_shifted_versions = True
-        use_sawtooth_timbre = False
+        name_suffix = "_instrument_model_" + str(num_filters) + '_' + str(contamination)
 
     else:  # for the ablation study, simple analysis-synthesis described in Salomon paper.
         instrument_timbre_detector = None
-        low_confidence_threshold = 0.3
-        high_confidence_threshold = 0.7
-        min_voiced_th_ms = 50
-        refine_estimates_with_twm = True
-        create_pitch_shifted_versions = False
-        use_sawtooth_timbre = True
+        name_suffix = "_standard"
 
+    low_confidence_threshold = 0.3
+    high_confidence_threshold = 0.7
+    min_voiced_th_ms = 50
+    refine_estimates_with_twm = True
+    create_pitch_shifted_versions = True
+    use_sawtooth_timbre = False
+
+    if use_sawtooth_timbre:
+        name_suffix = name_suffix + "_sawtooth"
 
     for name in sorted(names)[::-1]:
         time_grade = taymit()
         print("Started processing grade ", name)
         process_folder(path_folder_audio=os.path.join(dataset_folder, name),
                        path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", model, name),
-                       path_folder_synth=os.path.join(dataset_folder, "synthesized_instrument_model_" +
-                                                      str(num_filters) + '_' + str(contamination), name),
+                       path_folder_synth=os.path.join(dataset_folder, "synthesized" + name_suffix, name),
                        instrument_detector=instrument_timbre_detector,
                        pitch_shift=create_pitch_shifted_versions,
                        th_lc=low_confidence_threshold, th_hc=high_confidence_threshold,
                        voiced_th_ms=min_voiced_th_ms, refine_twm=refine_estimates_with_twm,
                        sawtooth_synth=use_sawtooth_timbre, n_jobs=16)
-        synth2tfrecord_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized_instrument_model_" +
-                                                      str(num_filters) + '_' + str(contamination), name),
-                              path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord_instrument_model_" +
-                                                      str(num_filters) + '_' + str(contamination), name),
+        synth2tfrecord_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized" + name_suffix, name),
+                              path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord" + name_suffix, name),
                               n_jobs=16)
         time_grade = taymit() - time_grade
         print("Grade {:s} took {:.3f}".format(name, time_grade))
