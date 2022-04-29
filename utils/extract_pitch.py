@@ -201,7 +201,7 @@ def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindat
 
 if __name__ == '__main__':
     new_model_name = 'no_pretrain_dummy'
-    #urmp_all_instruments_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)
+    urmp_all_instruments_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)
     urmp_evaluate_all(pitch_range=(190, 4000))
 
     """
