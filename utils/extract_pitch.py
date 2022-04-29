@@ -121,7 +121,7 @@ def single_file_extract_pitch_with_model(audio_file, output_f0_file=None, model_
     return
 
 
-def evaluate(predicted_file_list, ground_truth_file_list):
+def evaluate(predicted_file_list, ground_truth_file_list, pitch_range=None):
     cents_predicted, cents_ground = [], []
     for i, predicted_i in enumerate(predicted_file_list):
         ground_i = ground_truth_file_list[i]
@@ -134,6 +134,10 @@ def evaluate(predicted_file_list, ground_truth_file_list):
         f0_ground = ground["frequency"].values
         f0_predicted = f(ground["time"])[f0_ground > 0]
         f0_ground = f0_ground[f0_ground > 0]
+        if pitch_range:
+            range_bool = np.logical_and(f0_ground > pitch_range[0], f0_ground < pitch_range[1])
+            f0_predicted = f0_predicted[range_bool]
+            f0_ground = f0_ground[range_bool]
         cents_predicted.append(hz2cents(f0_predicted))
         cents_ground.append(hz2cents(f0_ground))
     cents_ground = np.hstack(cents_ground)
@@ -158,7 +162,8 @@ def urmp_evaluate_model(model_name, instrument='vn',
 
 
 def urmp_evaluate_per_instrument(instrument="vn",
-                                 urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP")):
+                                 urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP"),
+                                 pitch_range=None):
     dataset_folder = os.path.join(urmp_path, "Dataset")
     ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*_" + instrument + "_*.txt")))
     evaluation = {}
@@ -169,26 +174,35 @@ def urmp_evaluate_per_instrument(instrument="vn",
                                                                 "*/AuSep*_" + instrument + "_*.f0.csv")))
             assert len(predicted_file_list) == len(ground_file_list)
             evaluation[model_name] = evaluate(predicted_file_list=predicted_file_list,
-                                              ground_truth_file_list=ground_file_list)
+                                              ground_truth_file_list=ground_file_list, pitch_range=pitch_range)
             print(model_name)
             eval_string = ""
             for key, value in evaluation[model_name].items():
                 eval_string = eval_string + "{:s}: {:.3f}%   ".format(key, 100 * value)
             print(eval_string + "\n")
-    json.dump(evaluation, open(os.path.join(urmp_path, "pitch_tracks", instrument + "_evaluation.json"), "w"))
+
+    if pitch_range:
+        json_path = os.path.join(urmp_path, "pitch_tracks", instrument + "_restricted_pitch_evaluation.json")
+    else:
+        json_path = os.path.join(urmp_path, "pitch_tracks", instrument + "_evaluation.json")
+    json.dump(evaluation, open(json_path, "w"))
     return
 
 
-def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP")):
+def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP"), pitch_range=None):
     for instrument in URMP_INSTRUMENTS:
-        urmp_evaluate_per_instrument(instrument=instrument, urmp_path=urmp_path)
+        info = instrument
+        if pitch_range:
+            info = info + ' restricted pitch'
+        print('\n\n\n' + info)
+        urmp_evaluate_per_instrument(instrument=instrument, urmp_path=urmp_path, pitch_range=pitch_range)
     return
 
 
 if __name__ == '__main__':
-    new_model_name = 'april10'
-    urmp_all_instruments_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)
-    urmp_evaluate_all()
+    new_model_name = 'no_pretrain_dummy'
+    #urmp_all_instruments_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)
+    urmp_evaluate_all(pitch_range=(190, 4000))
 
     """
     extract_pitch_with_model(model_name=new_model_name,
