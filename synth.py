@@ -352,13 +352,14 @@ if __name__ == '__main__':
 
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes")
     names = sorted([_ for _ in os.listdir(dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
-    model = "original"
+    model = "finetuned_instrument_model_50_005"
     use_instrument_model = True  # only use for the ablation study *standard analysis-synthesis without the instrument model
 
+    iteration_if_applicable = 2 # do not use if starting from the original model
     if use_instrument_model:
         # Instrument model is used for the standard implementation, below is the code to create the
         # instrument timbre model
-        num_filters = 100
+        num_filters = 50
         contamination = 0.05
         instrument_model_method = "normalized"
         estimate_instrument_model = True
@@ -439,6 +440,9 @@ if __name__ == '__main__':
 
     if use_sawtooth_timbre:
         name_suffix = name_suffix + "_sawtooth"
+
+    if iteration_if_applicable:
+        name_suffix = name_suffix + "_iter" + str(iteration_if_applicable)
 
     for name in sorted(names)[::-1]:
         time_grade = taymit()
