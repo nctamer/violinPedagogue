@@ -364,6 +364,10 @@ if __name__ == '__main__':
     use_sawtooth_timbre = False
 
     if use_instrument_model:
+        num_filters = 50
+        contamination = 0.05
+        estimate_instrument_model = True
+        inst_model_use_existing_anal_files = False
         name_suffix = "_instrument_model_" + str(num_filters) + '_' + str(contamination)
     else:  # for the ablation study, simple analysis-synthesis described in Salomon paper.
         instrument_timbre_detector = None
@@ -377,12 +381,6 @@ if __name__ == '__main__':
     if use_instrument_model:
         # Instrument model is used for the standard implementation, below is the code to create the
         # instrument timbre model
-        num_filters = 50
-        contamination = 0.05
-        instrument_model_method = "normalized"
-        estimate_instrument_model = True
-        inst_model_use_existing_anal_files = False
-
         if estimate_instrument_model:
             print("started instrument model estimation")
             # combine instrument model estimation with the synthesis. The analysis for the instrument estimation takes
