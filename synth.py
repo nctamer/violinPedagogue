@@ -353,9 +353,27 @@ if __name__ == '__main__':
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes")
     names = sorted([_ for _ in os.listdir(dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
     model = "finetuned_instrument_model_50_005"
+    iteration_if_applicable = 2 # do not use if starting from the original model
     use_instrument_model = True  # only use for the ablation study *standard analysis-synthesis without the instrument model
 
-    iteration_if_applicable = 2 # do not use if starting from the original model
+    low_confidence_threshold = 0.3
+    high_confidence_threshold = 0.7
+    min_voiced_th_ms = 50
+    refine_estimates_with_twm = True
+    create_pitch_shifted_versions = True
+    use_sawtooth_timbre = False
+
+    if use_instrument_model:
+        name_suffix = "_instrument_model_" + str(num_filters) + '_' + str(contamination)
+    else:  # for the ablation study, simple analysis-synthesis described in Salomon paper.
+        instrument_timbre_detector = None
+        name_suffix = "_standard"
+    if use_sawtooth_timbre:
+        name_suffix = name_suffix + "_sawtooth"
+    if iteration_if_applicable:
+        name_suffix = name_suffix + "_iter" + str(iteration_if_applicable)
+
+
     if use_instrument_model:
         # Instrument model is used for the standard implementation, below is the code to create the
         # instrument timbre model
@@ -363,7 +381,7 @@ if __name__ == '__main__':
         contamination = 0.05
         instrument_model_method = "normalized"
         estimate_instrument_model = True
-        inst_model_use_existing_anal_files = True  # todo just a workaround for the memory leak!
+        inst_model_use_existing_anal_files = False
 
         if estimate_instrument_model:
             print("started instrument model estimation")
@@ -373,13 +391,13 @@ if __name__ == '__main__':
                 for name in names:
                     analyze_folder(path_folder_audio=os.path.join(dataset_folder, name),
                                    path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", model, name),
-                                   path_folder_anal=os.path.join(dataset_folder, "anal", name),
+                                   path_folder_anal=os.path.join(dataset_folder, "anal" + name_suffix, name),
                                    confidence_threshold=0.9,
                                    n_jobs=16)
             data, pitch_content = [], []
             for name in names:
                 print("started processing the folder ", name)
-                files_anal = os.path.join(dataset_folder, "anal", name)
+                files_anal = os.path.join(dataset_folder, "anal" + name_suffix, name)
                 for file in sorted(os.listdir(files_anal)):
                     file_content = np.load(os.path.join(files_anal, file))
                     data.append(file_content['hmag'])
@@ -425,24 +443,7 @@ if __name__ == '__main__':
         with open(instrument_model_file, 'rb') as modelfile:
             instrument_timbre_detector = pickle.load(modelfile)
 
-        name_suffix = "_instrument_model_" + str(num_filters) + '_' + str(contamination)
 
-    else:  # for the ablation study, simple analysis-synthesis described in Salomon paper.
-        instrument_timbre_detector = None
-        name_suffix = "_standard"
-
-    low_confidence_threshold = 0.3
-    high_confidence_threshold = 0.7
-    min_voiced_th_ms = 50
-    refine_estimates_with_twm = True
-    create_pitch_shifted_versions = True
-    use_sawtooth_timbre = False
-
-    if use_sawtooth_timbre:
-        name_suffix = name_suffix + "_sawtooth"
-
-    if iteration_if_applicable:
-        name_suffix = name_suffix + "_iter" + str(iteration_if_applicable)
 
     for name in sorted(names)[::-1]:
         time_grade = taymit()
