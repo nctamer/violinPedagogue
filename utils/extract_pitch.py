@@ -200,16 +200,16 @@ def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindat
 
 
 if __name__ == '__main__':
-    new_model_name = 'sawtooth'
-    urmp_all_instruments_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)
-    urmp_evaluate_all(pitch_range=(190, 4000))
+    new_model_name = 'finetuned_instrument_model_50_005'
+    #urmp_all_instruments_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)
+    #urmp_evaluate_all(pitch_range=(190, 4000))
 
-    """
+
     extract_pitch_with_model(model_name=new_model_name,
                              main_dataset_folder=os.path.join(os.path.expanduser("~"),
                                                               "violindataset", "monophonic_etudes"),
                              save_activation=False, viterbi=True, verbose=1)
-    """
+
 
     #for new_model_name in new_model_names:
     #    extract_pitch_with_model(model_name=new_model_name, save_activation=True, viterbi=True, verbose=0)
