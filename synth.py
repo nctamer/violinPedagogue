@@ -367,7 +367,7 @@ if __name__ == '__main__':
         num_filters = 50
         contamination = 0.05
         estimate_instrument_model = True
-        inst_model_use_existing_anal_files = False
+        inst_model_use_existing_anal_files = True
         name_suffix = "_instrument_model_" + str(num_filters) + '_' + str(contamination)
     else:  # for the ablation study, simple analysis-synthesis described in Salomon paper.
         instrument_timbre_detector = None
@@ -408,20 +408,25 @@ if __name__ == '__main__':
             data = data[order]
             data = data - data[:, 0][:, np.newaxis]
 
-            mids = np.linspace(pitch_content.min(), pitch_content.max(), num_filters + 2)
-            increment = np.diff(mids).mean()
+            mids = np.linspace(pitch_content[10], pitch_content[-11], num_filters + 2)  # not directly the max
+            mids[0] = pitch_content[0]         # a quick fix for outliers, to make sure that we do not focus
+            mids[-1] = pitch_content[-1]       # on some arbitrary big or small pitch estimate
             instrument_timbre_detectors = {}
-            print('range:', mids.min(), mids.max())
+            print('range:', min(mids), max(mids))
             for n in range(1, num_filters + 1):
                 mid = mids[n]
-                start = mid - increment
-                end = mid + increment
+                start = mids[n-1]
+                end = mids[n+1]
                 relevant = np.logical_and(pitch_content > start, pitch_content < end)
                 relevant_data = data[relevant]
-                instrument_timbre_detector = EllipticEnvelope(contamination=contamination).fit(relevant_data[:, 1:])
-                instrument_timbre_detectors[mid] = instrument_timbre_detector
-                print(mid, n, start, end, len(relevant_data))
-                print(np.array2string(instrument_timbre_detector.location_, precision=2))
+                if len(relevant_data>10):
+                    instrument_timbre_detector = EllipticEnvelope(contamination=contamination).fit(relevant_data[:, 1:])
+                    instrument_timbre_detectors[mid] = instrument_timbre_detector
+                    print(mid, n, start, end, len(relevant_data))
+                    print(np.array2string(instrument_timbre_detector.location_, precision=2))
+                else:
+                    print('not enough samples to generate instrument model in the range:', start, end)
+                    print('skipping')
 
             pitch_bins = mids[1:-2]
             pitch_hist, _ = np.histogram(pitch_content, bins=pitch_bins)
