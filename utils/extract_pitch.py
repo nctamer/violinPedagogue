@@ -82,14 +82,19 @@ def urmp_all_instruments_extract_pitch_with_model(model_name, urmp_path=os.path.
 def extract_pitch_with_model(model_name, main_dataset_folder=os.path.join(os.path.expanduser("~"), "violindataset",
                                                                           "graded_repertoire"),
                              viterbi=True, save_activation=False, verbose=1):
-    OUT_FOLDER = os.path.join(main_dataset_folder, 'pitch_tracks', model_name)
+    out_name = model_name
+    if viterbi=='weird':
+        out_name += '_weird'
+    elif viterbi==False:
+        out_name += '_no_viterbi'
+    OUT_FOLDER = os.path.join(main_dataset_folder, 'pitch_tracks', out_name)
     AUDIO_FORMAT = ".mp3"
     GRADES = sorted([_ for _ in os.listdir(main_dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
 
-    model_path = os.path.join('..', 'crepe', 'models', model_name + '.h5')
+    model_path = os.path.join('..', 'crepe', 'models', out_name + '.h5')
 
     audio_files, output_f0_files, activation_files = [], [], []
-    activation_folder = os.path.join(main_dataset_folder, 'activations', model_name)
+    activation_folder = os.path.join(main_dataset_folder, 'activations', out_name)
     for grade in sorted(GRADES)[::-1]:
         if os.path.isdir(os.path.join(main_dataset_folder, grade)):
             if not os.path.exists(os.path.join(OUT_FOLDER, grade)):
@@ -200,16 +205,18 @@ def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindat
 
 
 if __name__ == '__main__':
-    new_model_name = 'no_pretrain_standard'
-    urmp_all_instruments_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)
-    urmp_evaluate_all(pitch_range=(190, 4000))
+    new_model_name = 'original'
+    viterbi = 'weird'
 
-    """
+    #urmp_all_instruments_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)
+    #urmp_evaluate_all(pitch_range=(190, 4000))
+
+
     extract_pitch_with_model(model_name=new_model_name,
                              main_dataset_folder=os.path.join(os.path.expanduser("~"),
                                                               "violindataset", "monophonic_etudes"),
-                             save_activation=False, viterbi=True, verbose=1)
-    """
+                             save_activation=False, viterbi=viterbi, verbose=0)
+
 
     #for new_model_name in new_model_names:
     #    extract_pitch_with_model(model_name=new_model_name, save_activation=True, viterbi=True, verbose=0)
