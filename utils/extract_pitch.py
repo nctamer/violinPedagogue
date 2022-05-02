@@ -45,6 +45,27 @@ def predict_from_file_list(audio_files, output_f0_files, model_path, activation_
     return
 
 
+def bach10_extract_pitch_with_model(model_name, bach10_path=os.path.join(os.path.expanduser("~"),
+                                                                         "violindataset", "Bach10-mf0-synth"),
+                                    viterbi=False, verbose=1):
+    dataset_folder = os.path.join(bach10_path, "audio_stems")
+    out_folder = os.path.join(bach10_path, 'pitch_tracks', model_name)
+    if not os.path.exists(os.path.join(out_folder)):
+        # Create a new directory because it does not exist
+        os.makedirs(os.path.join(out_folder))
+    model_path = os.path.join('..', 'crepe', 'models', model_name + '.h5')
+
+    audio_files, output_f0_files = [], []
+    stems = sorted(glob.glob(os.path.join(dataset_folder, "*.RESYN.wav")))
+    for track in stems:
+        if track[0].isdigit():
+                audio_files.append(track)
+                output_f0_files.append(os.path.join(out_folder, os.path.basename(track)[:-3] + "f0.csv"))
+
+    predict_from_file_list(audio_files, output_f0_files, model_path, viterbi=viterbi, verbose=verbose)
+    return
+
+
 def urmp_extract_pitch_with_model(model_name, instrument='vn',
                                   urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP"),
                                   viterbi=False, verbose=1):
@@ -206,16 +227,19 @@ def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindat
 
 if __name__ == '__main__':
     new_model_name = 'original'
-    viterbi = 'weird'
+    bach10_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)
 
     #urmp_all_instruments_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)
     #urmp_evaluate_all(pitch_range=(190, 4000))
 
-
+    '''
+    viterbi = 'weird'
     extract_pitch_with_model(model_name=new_model_name,
                              main_dataset_folder=os.path.join(os.path.expanduser("~"),
                                                               "violindataset", "monophonic_etudes"),
                              save_activation=False, viterbi=viterbi, verbose=0)
+    '''
+
 
 
     #for new_model_name in new_model_names:
