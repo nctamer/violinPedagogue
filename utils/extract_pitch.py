@@ -186,7 +186,7 @@ def urmp_evaluate_per_instrument(instrument="vn",
     else:
         json_path = os.path.join(urmp_path, "pitch_tracks", instrument + "_evaluation.json")
     json.dump(evaluation, open(json_path, "w"))
-    return
+    return evaluation
 
 
 def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP"), pitch_range=None):
