@@ -60,8 +60,6 @@ def bach10_extract_pitch_with_model(model_name, bach10_path=os.path.join(os.path
         if track[0].isdigit():
             audio_files.append(os.path.join(dataset_folder, track))
             output_f0_files.append(os.path.join(out_folder, track[:-3] + "f0.csv"))
-    print(audio_files)
-    print(output_f0_files)
     predict_from_file_list(audio_files, output_f0_files, model_path, viterbi=viterbi, verbose=verbose)
     return
 
