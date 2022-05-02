@@ -91,7 +91,7 @@ def extract_pitch_with_model(model_name, main_dataset_folder=os.path.join(os.pat
     AUDIO_FORMAT = ".mp3"
     GRADES = sorted([_ for _ in os.listdir(main_dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
 
-    model_path = os.path.join('..', 'crepe', 'models', out_name + '.h5')
+    model_path = os.path.join('..', 'crepe', 'models', model_name + '.h5')
 
     audio_files, output_f0_files, activation_files = [], [], []
     activation_folder = os.path.join(main_dataset_folder, 'activations', out_name)
