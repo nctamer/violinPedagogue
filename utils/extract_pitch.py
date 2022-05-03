@@ -55,9 +55,8 @@ def external_data_extract_pitch_with_model(model_name, external_data_path, viter
 
     audio_files, output_f0_files = [], []
     for track in sorted(os.listdir(dataset_folder)):
-        if track[0].isdigit():
-            audio_files.append(os.path.join(dataset_folder, track))
-            output_f0_files.append(os.path.join(out_folder, track[:-3] + "f0.csv"))
+        audio_files.append(os.path.join(dataset_folder, track))
+        output_f0_files.append(os.path.join(out_folder, track[:-3] + "f0.csv"))
     predict_from_file_list(audio_files, output_f0_files, model_path, viterbi=viterbi, verbose=verbose)
     return
 
