@@ -286,7 +286,7 @@ if __name__ == '__main__':
                                            external_data_path=os.path.join(os.path.expanduser("~"),
                                                                            "violindataset", "monophonic_etudes",
                                                                            "allPaganini"),
-                                           viterbi='weird', verbose=1)
+                                           viterbi=True, verbose=1)
 
 
     '''
