@@ -47,7 +47,12 @@ def predict_from_file_list(audio_files, output_f0_files, model_path, activation_
 
 def external_data_extract_pitch_with_model(model_name, external_data_path, viterbi=True, verbose=1):
     dataset_folder = os.path.join(external_data_path, "audio")
-    out_folder = os.path.join(external_data_path, 'pitch_tracks', model_name)
+    out_name = model_name
+    if viterbi=='weird':
+        out_name += '_weird'
+    elif viterbi==False:
+        out_name += '_no_viterbi'
+    out_folder = os.path.join(external_data_path, 'pitch_tracks', out_name)
     if not os.path.exists(os.path.join(out_folder)):
         # Create a new directory because it does not exist
         os.makedirs(os.path.join(out_folder))
@@ -276,12 +281,12 @@ def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindat
 
 
 if __name__ == '__main__':
-    new_model_name = 'finetuned_instrument_model_50_005'
+    new_model_name = 'original'
     external_data_extract_pitch_with_model(model_name=new_model_name,
                                            external_data_path=os.path.join(os.path.expanduser("~"),
                                                                            "violindataset", "monophonic_etudes",
                                                                            "allPaganini"),
-                                           viterbi=True, verbose=1)
+                                           viterbi='weird', verbose=1)
 
 
     '''
