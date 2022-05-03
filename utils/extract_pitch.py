@@ -45,6 +45,23 @@ def predict_from_file_list(audio_files, output_f0_files, model_path, activation_
     return
 
 
+def external_data_extract_pitch_with_model(model_name, external_data_path, viterbi=True, verbose=1):
+    dataset_folder = os.path.join(external_data_path, "audio")
+    out_folder = os.path.join(external_data_path, 'pitch_tracks', model_name)
+    if not os.path.exists(os.path.join(out_folder)):
+        # Create a new directory because it does not exist
+        os.makedirs(os.path.join(out_folder))
+    model_path = os.path.join('..', 'crepe', 'models', model_name + '.h5')
+
+    audio_files, output_f0_files = [], []
+    for track in sorted(os.listdir(dataset_folder)):
+        if track[0].isdigit():
+            audio_files.append(os.path.join(dataset_folder, track))
+            output_f0_files.append(os.path.join(out_folder, track[:-3] + "f0.csv"))
+    predict_from_file_list(audio_files, output_f0_files, model_path, viterbi=viterbi, verbose=verbose)
+    return
+
+
 def bach10_extract_pitch_with_model(model_name, bach10_path=os.path.join(os.path.expanduser("~"),
                                                                          "violindataset", "Bach10-mf0-synth"),
                                     viterbi=False, verbose=1):
@@ -145,11 +162,14 @@ def single_file_extract_pitch_with_model(audio_file, output_f0_file=None, model_
     return
 
 
-def evaluate(predicted_file_list, ground_truth_file_list, pitch_range=None):
+def evaluate(predicted_file_list, ground_truth_file_list, pitch_range=None, format='URMP'):
     cents_predicted, cents_ground = [], []
     for i, predicted_i in enumerate(predicted_file_list):
         ground_i = ground_truth_file_list[i]
-        ground = pd.read_csv(ground_i, sep="\t", header=None, names=["time", "frequency"])
+        if format=='URMP':
+            ground = pd.read_csv(ground_i, sep="\t", header=None, names=["time", "frequency"])
+        if format=='RESYN':
+            ground = pd.read_csv(ground_i, sep=",", header=None, names=["time", "frequency"])
 
         predicted = pd.read_csv(predicted_i)
 
@@ -172,6 +192,39 @@ def evaluate(predicted_file_list, ground_truth_file_list, pitch_range=None):
     rpa5, rca5 = accuracies(cents_ground, cents_predicted, cent_tolerance=5)
     return {"rpa50": rpa50, "rpa25": rpa25, "rpa10": rpa10, "rpa5": rpa5,
             "rca50": rca50, "rca25": rca25, "rca10": rca10, "rca5": rca5}
+
+
+def bach10_evaluate_model(model_name, pitch_range=None,
+                          bach10_path=os.path.join(os.path.expanduser("~"),
+                                                   "violindataset", "Bach10-mf0-synth")):
+    dataset_folder = os.path.join(bach10_path, "annotation_stems")
+    pitch_tracks_folder = os.path.join(bach10_path, 'pitch_tracks', model_name)
+    predicted_file_list = sorted(glob.glob(os.path.join(pitch_tracks_folder, "*.RESYN.f0.csv")))
+    ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*.RESYN.csv")))
+    assert len(predicted_file_list) == len(
+        ground_file_list)  # to ensure we have pitch tracks for all the instrument data
+    return evaluate(predicted_file_list=predicted_file_list, ground_truth_file_list=ground_file_list, format='RESYN',
+                    pitch_range=pitch_range)
+
+def bach10_evaluate_all(pitch_range=None, instrument=None,
+                        bach10_path=os.path.join(os.path.expanduser("~"),
+                                                 "violindataset", "Bach10-mf0-synth")):
+    search_string = '.RESYN'
+    if instrument:
+        search_string = instrument + search_string
+    dataset_folder = os.path.join(bach10_path, "annotation_stems")
+    ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*" + search_string + ".csv")))
+    evaluation = {}
+    for model_name in os.listdir(os.path.join(bach10_path, 'pitch_tracks')):
+        pitch_tracks_folder = os.path.join(bach10_path, 'pitch_tracks', model_name)
+        predicted_file_list = sorted(glob.glob(os.path.join(pitch_tracks_folder, "*" + search_string + ".f0.csv")))
+
+        assert len(predicted_file_list) == len(
+            ground_file_list)  # to ensure we have pitch tracks for all the instrument data
+        evaluation[model_name] = evaluate(predicted_file_list=predicted_file_list,
+                                          ground_truth_file_list=ground_file_list, format='RESYN',
+                                          pitch_range=pitch_range)
+    return evaluation
 
 
 def urmp_evaluate_model(model_name, instrument='vn',
@@ -225,7 +278,22 @@ def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindat
 
 if __name__ == '__main__':
     new_model_name = 'finetuned_instrument_model_50_005'
-    bach10_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)
+    external_data_extract_pitch_with_model(model_name=new_model_name,
+                                           external_data_path=os.path.join(os.path.expanduser("~"),
+                                                                           "violindataset", "monophonic_etudes",
+                                                                           "allPaganini"),
+                                           viterbi=True, verbose=1)
+
+
+    '''
+    bach10violineval = bach10_evaluate_all(instrument='violin')
+    bach10eval = bach10_evaluate_all(pitch_range=(190, 4000))
+
+
+
+    bach10_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)    
+    '''
+
 
     #urmp_all_instruments_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)
     #urmp_evaluate_all(pitch_range=(190, 4000))
