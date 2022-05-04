@@ -270,6 +270,42 @@ def urmp_evaluate_per_instrument(instrument="vn",
     return evaluation
 
 
+def urmp_evaluate_all_except_one_instrument(instrument_to_discard="vn",
+                                            urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP"),
+                                            pitch_range=None):
+    dataset_folder = os.path.join(urmp_path, "Dataset")
+    ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*_" + "*" + "_*.txt")))
+    to_remove = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*_" + instrument_to_discard + "_*.txt")))
+    ground_file_list = sorted(list(set(ground_file_list).difference(set(to_remove))))
+    evaluation = {}
+    for model_name in os.listdir(os.path.join(urmp_path, 'pitch_tracks')):
+        pitch_tracks_folder = os.path.join(urmp_path, 'pitch_tracks', model_name, "all_except_" + instrument_to_discard)
+        if os.path.isdir(pitch_tracks_folder):
+            predicted_file_list = sorted(glob.glob(os.path.join(pitch_tracks_folder,
+                                                                "*/AuSep*_" + "*" + "_*.f0.csv")))
+            to_remove = sorted(glob.glob(os.path.join(pitch_tracks_folder,
+                                                                "*/AuSep*_" + instrument_to_discard + "_*.txt")))
+            predicted_file_list = sorted(list(set(predicted_file_list).difference(set(to_remove))))
+            assert len(predicted_file_list) == len(ground_file_list)
+            evaluation[model_name] = evaluate(predicted_file_list=predicted_file_list,
+                                              ground_truth_file_list=ground_file_list, pitch_range=pitch_range)
+            print(model_name)
+            eval_string = ""
+            for key, value in evaluation[model_name].items():
+                eval_string = eval_string + "{:s}: {:.3f}%   ".format(key, 100 * value)
+            print(eval_string + "\n")
+
+    if pitch_range:
+        json_path = os.path.join(urmp_path, "pitch_tracks", "all_except_" + instrument_to_discard +
+                                 "_restricted_pitch_evaluation.json")
+    else:
+        json_path = os.path.join(urmp_path, "pitch_tracks", "all_except_" + instrument_to_discard + "_evaluation.json")
+    json.dump(evaluation, open(json_path, "w"))
+    return evaluation
+
+
+
+
 def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP"), pitch_range=None):
     for instrument in URMP_INSTRUMENTS:
         info = instrument
