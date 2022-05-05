@@ -318,6 +318,13 @@ def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindat
 
 if __name__ == '__main__':
     new_model_name = 'original'
+    for pitch_shift in range(0, 101, 10):
+        bachpath = os.path.join(os.path.expanduser("~"), "violindataset", "Bach10-mf0-synth") \
+                   + '_' + str(pitch_shift) + 'c_shifted'
+        bach10_extract_pitch_with_model(new_model_name, bach10_path=bachpath, viterbi=False, verbose=1)
+
+
+    '''
     external_data_extract_pitch_with_model(model_name=new_model_name,
                                            external_data_path=os.path.join(os.path.expanduser("~"),
                                                                            "violindataset", "monophonic_etudes",
@@ -325,7 +332,7 @@ if __name__ == '__main__':
                                            viterbi=True, verbose=1)
 
 
-    '''
+    
     bach10violineval = bach10_evaluate_all(instrument='violin')
     bach10eval = bach10_evaluate_all(pitch_range=(190, 4000))
 
