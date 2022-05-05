@@ -317,7 +317,7 @@ def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindat
 
 
 if __name__ == '__main__':
-    new_model_name = 'finetuned_standard'
+    new_model_name = 'no_pretrain_standard'
 
     # ViolinPedagogue
     extract_pitch_with_model(model_name=new_model_name,
