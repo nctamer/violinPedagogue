@@ -317,7 +317,7 @@ def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindat
 
 
 if __name__ == '__main__':
-    new_model_name = 'no_pretrain_instrument_model_50_005'
+    new_model_name = 'finetuned_instrument_model_50_005'
     for pitch_shift in range(0, 101, 10):
         bachpath = os.path.join(os.path.expanduser("~"), "violindataset", "Bach10-mf0-synth") \
                    + '_' + str(pitch_shift) + 'c_shifted'
