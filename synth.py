@@ -352,7 +352,7 @@ if __name__ == '__main__':
 
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes")
     names = sorted([_ for _ in os.listdir(dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
-    model = "standard"
+    model = "finetuned_standard"
     iteration_if_applicable = 2 # do not use if starting from the original model
     use_instrument_model = False  # only use for the ablation study *standard analysis-synthesis without the instrument model
 
