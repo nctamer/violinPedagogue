@@ -317,7 +317,7 @@ def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindat
 
 
 if __name__ == '__main__':
-    new_model_name = 'no_pretrain_weird'
+    new_model_name = 'finetuned_weird'
 
     # Bach10-mf0-synth
     bach10_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)
