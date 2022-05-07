@@ -210,7 +210,7 @@ def bach10_evaluate_model(model_name, pitch_range=None,
     return evaluate(predicted_file_list=predicted_file_list, ground_truth_file_list=ground_file_list, format='RESYN',
                     pitch_range=pitch_range)
 
-def bach10_evaluate_all(pitch_range=None, instrument=None,
+def bach10_evaluate_all(pitch_range=None, instrument=None, instrument_to_discard=None,
                         bach10_path=os.path.join(os.path.expanduser("~"),
                                                  "violindataset", "Bach10-mf0-synth")):
     search_string = '.RESYN'
@@ -218,16 +218,22 @@ def bach10_evaluate_all(pitch_range=None, instrument=None,
         search_string = instrument + search_string
     dataset_folder = os.path.join(bach10_path, "annotation_stems")
     ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*" + search_string + ".csv")))
+    if instrument_to_discard:
+        to_remove = glob.glob(os.path.join(dataset_folder, "*" + instrument_to_discard + search_string + ".csv"))
+        ground_file_list = sorted(list(set(ground_file_list).difference(set(to_remove))))
     evaluation = {}
     for model_name in os.listdir(os.path.join(bach10_path, 'pitch_tracks')):
         pitch_tracks_folder = os.path.join(bach10_path, 'pitch_tracks', model_name)
-        predicted_file_list = sorted(glob.glob(os.path.join(pitch_tracks_folder, "*" + search_string + ".f0.csv")))
-
-        assert len(predicted_file_list) == len(
-            ground_file_list)  # to ensure we have pitch tracks for all the instrument data
-        evaluation[model_name] = evaluate(predicted_file_list=predicted_file_list,
-                                          ground_truth_file_list=ground_file_list, format='RESYN',
-                                          pitch_range=pitch_range)
+        if len(os.listdir(pitch_tracks_folder)):
+            predicted_file_list = sorted(glob.glob(os.path.join(pitch_tracks_folder, "*" + search_string + ".f0.csv")))
+            if instrument_to_discard:
+                to_remove = glob.glob(os.path.join(pitch_tracks_folder, "*" + instrument_to_discard + search_string + ".f0.csv"))
+                predicted_file_list = sorted(list(set(predicted_file_list).difference(set(to_remove))))
+            assert len(predicted_file_list) == len(
+                ground_file_list)  # to ensure we have pitch tracks for all the instrument data
+            evaluation[model_name] = evaluate(predicted_file_list=predicted_file_list,
+                                              ground_truth_file_list=ground_file_list, format='RESYN',
+                                              pitch_range=pitch_range)
     return evaluation
 
 
@@ -245,6 +251,11 @@ def urmp_evaluate_model(model_name, instrument='vn',
 def urmp_evaluate_per_instrument(instrument="vn",
                                  urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP"),
                                  pitch_range=None):
+    if pitch_range:
+        eval_setting = instrument + "_restricted_pitch_evaluation"
+    else:
+        eval_setting = instrument + "_evaluation"
+    print(eval_setting)
     dataset_folder = os.path.join(urmp_path, "Dataset")
     ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*_" + instrument + "_*.txt")))
     evaluation = {}
@@ -262,10 +273,7 @@ def urmp_evaluate_per_instrument(instrument="vn",
                 eval_string = eval_string + "{:s}: {:.3f}%   ".format(key, 100 * value)
             print(eval_string + "\n")
 
-    if pitch_range:
-        json_path = os.path.join(urmp_path, "pitch_tracks", instrument + "_restricted_pitch_evaluation.json")
-    else:
-        json_path = os.path.join(urmp_path, "pitch_tracks", instrument + "_evaluation.json")
+    json_path = os.path.join(urmp_path, "pitch_tracks", eval_setting + ".json")
     json.dump(evaluation, open(json_path, "w"))
     return evaluation
 
@@ -273,19 +281,25 @@ def urmp_evaluate_per_instrument(instrument="vn",
 def urmp_evaluate_all_except_one_instrument(instrument_to_discard="vn",
                                             urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP"),
                                             pitch_range=None):
+    if pitch_range:
+        eval_setting = "all_except_" + instrument_to_discard + "_restricted_pitch_evaluation"
+    else:
+        eval_setting = "all_except_" + instrument_to_discard + "_evaluation"
+    print(eval_setting)
     dataset_folder = os.path.join(urmp_path, "Dataset")
     ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*_" + "*" + "_*.txt")))
     to_remove = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*_" + instrument_to_discard + "_*.txt")))
     ground_file_list = sorted(list(set(ground_file_list).difference(set(to_remove))))
     evaluation = {}
     for model_name in os.listdir(os.path.join(urmp_path, 'pitch_tracks')):
-        pitch_tracks_folder = os.path.join(urmp_path, 'pitch_tracks', model_name, "all_except_" + instrument_to_discard)
+        pitch_tracks_folder = os.path.join(urmp_path, 'pitch_tracks', model_name)
         if os.path.isdir(pitch_tracks_folder):
             predicted_file_list = sorted(glob.glob(os.path.join(pitch_tracks_folder,
-                                                                "*/AuSep*_" + "*" + "_*.f0.csv")))
-            to_remove = sorted(glob.glob(os.path.join(pitch_tracks_folder,
-                                                                "*/AuSep*_" + instrument_to_discard + "_*.txt")))
-            predicted_file_list = sorted(list(set(predicted_file_list).difference(set(to_remove))))
+                                                                "*/*/AuSep*_" + "*" + "_*.f0.csv")))
+            to_remove = sorted(glob.glob(os.path.join(pitch_tracks_folder, instrument_to_discard,
+                                                                "*/AuSep*_" + instrument_to_discard + "_*.f0.csv")))
+            predicted_file_list = list(set(predicted_file_list).difference(set(to_remove)))
+            predicted_file_list.sort(key=lambda x: '/'.join(x.rsplit('/', 2)[1:]))
             assert len(predicted_file_list) == len(ground_file_list)
             evaluation[model_name] = evaluate(predicted_file_list=predicted_file_list,
                                               ground_truth_file_list=ground_file_list, pitch_range=pitch_range)
@@ -295,11 +309,7 @@ def urmp_evaluate_all_except_one_instrument(instrument_to_discard="vn",
                 eval_string = eval_string + "{:s}: {:.3f}%   ".format(key, 100 * value)
             print(eval_string + "\n")
 
-    if pitch_range:
-        json_path = os.path.join(urmp_path, "pitch_tracks", "all_except_" + instrument_to_discard +
-                                 "_restricted_pitch_evaluation.json")
-    else:
-        json_path = os.path.join(urmp_path, "pitch_tracks", "all_except_" + instrument_to_discard + "_evaluation.json")
+    json_path = os.path.join(urmp_path, "pitch_tracks", eval_setting + ".json")
     json.dump(evaluation, open(json_path, "w"))
     return evaluation
 

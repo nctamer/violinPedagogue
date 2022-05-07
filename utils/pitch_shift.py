@@ -5,6 +5,23 @@ import librosa
 import pandas as pd
 import numpy as np
 import soundfile as sf
+from mir_eval.melody import hz2cents
+from scipy import interpolate
+import matplotlib.pyplot as plt
+
+def accuracies(true_cents, predicted_cents, cent_tolerance=50, return_mean_std_abs_error=False):
+    from mir_eval.melody import raw_pitch_accuracy, raw_chroma_accuracy
+    assert true_cents.shape == predicted_cents.shape
+
+    voicing = np.ones(true_cents.shape)
+    rpa = raw_pitch_accuracy(voicing, true_cents, voicing, predicted_cents, cent_tolerance)
+    rca = raw_chroma_accuracy(voicing, true_cents, voicing, predicted_cents, cent_tolerance)
+    if return_mean_std_abs_error:
+        abs_error = np.abs(true_cents-predicted_cents)
+        abs_error = abs_error[abs_error<50]   #to get rid of outliers
+        return rpa, rca, np.mean(abs_error), np.std(abs_error)
+    else:
+        return rpa, rca
 
 def pitch_shift_from_file_list(audio_files, f0_files, pitch_shift_cents, shifted_audio_files, shifted_f0_files):
     pitch_shift_semitones = pitch_shift_cents/100
@@ -45,32 +62,171 @@ def bach10_pitch_shift(bach10_path=os.path.join(os.path.expanduser("~"), "violin
     return
 
 
-def urmp_extract_pitch_with_model(model_name, instrument='vn',
-                                  urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP"),
-                                  viterbi=False, verbose=1):
+def evaluate_per_equal_temperament_deviation(predicted_file_list, ground_truth_file_list,
+                                             pitch_range=None, format='URMP', step=10):
+    cents_predicted, cents_ground = [], []
+    for i, predicted_i in enumerate(predicted_file_list):
+        ground_i = ground_truth_file_list[i]
+        if format=='URMP':
+            ground = pd.read_csv(ground_i, sep="\t", header=None, names=["time", "frequency"])
+        if format=='RESYN':
+            ground = pd.read_csv(ground_i, sep=",", header=None, names=["time", "frequency"])
+
+        predicted = pd.read_csv(predicted_i)
+
+        f = interpolate.interp1d(predicted["time"], predicted["frequency"],
+                                 kind="cubic", fill_value="extrapolate")
+        f0_ground = ground["frequency"].values
+        f0_predicted = f(ground["time"])[f0_ground > 0]
+        f0_ground = f0_ground[f0_ground > 0]
+        if pitch_range:
+            range_bool = np.logical_and(f0_ground > pitch_range[0], f0_ground <= pitch_range[1])
+            f0_predicted = f0_predicted[range_bool]
+            f0_ground = f0_ground[range_bool]
+        cents_predicted.append(hz2cents(f0_predicted))
+        cents_ground.append(hz2cents(f0_ground))
+    cents_ground = np.hstack(cents_ground)
+    cents_predicted = np.hstack(cents_predicted)
+    ground_eq_deviation = cents_ground - hz2cents(np.array([440]))[0] % 100
+    ground_eq_deviation = np.mod(ground_eq_deviation, 100)
+    acc = {}
+    assert 100%step == 0
+    for subregion in range(int(np.ceil((100//step)))):
+        subregion = (step/2)*(subregion+1)
+        subregion = (subregion, 100-subregion)
+        relevant_region = np.logical_or(ground_eq_deviation<subregion[0], ground_eq_deviation>subregion[1])
+        rpa5, rca5 = accuracies(cents_ground[relevant_region], cents_predicted[relevant_region], cent_tolerance=5)
+        n_samples = sum(relevant_region)
+        print(rpa5, rca5, subregion, n_samples)
+        acc[subregion] = rpa5
+        cents_ground = cents_ground[~relevant_region]
+        cents_predicted = cents_predicted[~relevant_region]
+        ground_eq_deviation = ground_eq_deviation[~relevant_region]
+
+    return acc
+
+
+def bach10_evaluate_model_vs_equal_temperament(model_name, pitch_range=None, step=10, instrument=None,
+                                               bach10_path=os.path.join(os.path.expanduser("~"), "violindataset",
+                                                                        "Bach10-mf0-synth_*c_shifted")):
+    search_string = '.RESYN'
+    if instrument:
+        search_string = instrument + search_string
+    dataset_folder = os.path.join(bach10_path, "annotation_stems")
+    pitch_tracks_folder = os.path.join(bach10_path, 'pitch_tracks', model_name)
+    predicted_file_list = sorted(glob.glob(os.path.join(pitch_tracks_folder, "*" + search_string + ".f0.csv")))
+    ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*" + search_string + ".csv")))
+    assert len(predicted_file_list) == len(
+        ground_file_list)  # to ensure we have pitch tracks for all the instrument data
+    return evaluate_per_equal_temperament_deviation(predicted_file_list=predicted_file_list,
+                                                    ground_truth_file_list=ground_file_list, format='RESYN',
+                                                    pitch_range=pitch_range, step=step)
+
+def urmp_evaluate_model_vs_equal_temperament(model_name, pitch_range=None, step=10, instrument=None,
+                                  urmp_path=os.path.join(os.path.expanduser("~"), "violindataset", "URMP")):
     dataset_folder = os.path.join(urmp_path, "Dataset")
-    out_folder = os.path.join(urmp_path, 'pitch_tracks', model_name, instrument)
-
-    model_path = os.path.join('..', 'crepe', 'models', model_name + '.h5')
-
-    audio_files, f0_files, shifted_audio_files, shifted_f0_files = [], [], [], []
-    for track in sorted(os.listdir(dataset_folder)):
-        if track[0].isdigit():
-            stems = sorted(glob.glob(os.path.join(dataset_folder, track, "AuSep*_" + instrument + "_*.wav")))
-            if len(stems) > 0:
-                if not os.path.exists(os.path.join(out_folder, track)):
-                    # Create a new directory because it does not exist
-                    os.makedirs(os.path.join(out_folder, track))
-                new_audio_files = stems
-                audio_files.extend(new_audio_files)
-                output_f0_files.extend(
-                    [os.path.join(out_folder, track, os.path.basename(_)[:-3] + "csv") for _ in new_audio_files])
-
-    pitch_shift_from_file_list(audio_files, output_f0_files, model_path)
-    return
+    if not instrument:
+        instrument = '*'  # all instruments
+    ground_file_list = sorted(glob.glob(os.path.join(dataset_folder, "*/F0s*_" + instrument + "_*.txt")))
+    pitch_tracks_folder = os.path.join(urmp_path, 'pitch_tracks', model_name, instrument)
+    predicted_file_list = glob.glob(os.path.join(pitch_tracks_folder,
+                                                        "*/AuSep*_" + instrument + "_*.f0.csv"))
+    predicted_file_list.sort(key = lambda x: '/'.join(x.rsplit('/',2)[1:]))
+    assert len(predicted_file_list) == len(ground_file_list)
+    return evaluate_per_equal_temperament_deviation(predicted_file_list=predicted_file_list,
+                                                    ground_truth_file_list=ground_file_list, format='URMP',
+                                                    pitch_range=pitch_range, step=step)
 
 
 if __name__ == '__main__':
-    for shift in range(0, 101, 10):
-        bach10_pitch_shift(pitch_shift_cents=shift)
+    original = urmp_evaluate_model_vs_equal_temperament('original', pitch_range=(190, 4000), step=4)
+    violin_pedagogue = urmp_evaluate_model_vs_equal_temperament(
+        'no_pretrain_instrument_model_50_005', pitch_range=(190, 4000), step=4)
+    finetuned = urmp_evaluate_model_vs_equal_temperament('finetuned_instrument_model_50_005',
+                                                         pitch_range=(190, 4000), step=4)
+    df_urmp = pd.DataFrame(data = {'original':original,'violinPedagogue':violin_pedagogue,'finetuned':finetuned})
+
+    original = urmp_evaluate_model_vs_equal_temperament('original', instrument='vn', step=4)
+    violin_pedagogue = urmp_evaluate_model_vs_equal_temperament(
+        'no_pretrain_instrument_model_50_005', instrument='vn', step=4)
+    finetuned = urmp_evaluate_model_vs_equal_temperament('finetuned_instrument_model_50_005', instrument='vn', step=4)
+    df_vn_urmp = pd.DataFrame(data={'original': original, 'violinPedagogue': violin_pedagogue, 'finetuned': finetuned})
+
+    original = bach10_evaluate_model_vs_equal_temperament('original',
+                                               pitch_range=(190, 4000), step=4,
+                                               bach10_path=os.path.join(os.path.expanduser("~"), "violindataset",
+                                                                        "Bach10-mf0-synth"))
+    violin_pedagogue = bach10_evaluate_model_vs_equal_temperament('no_pretrain_instrument_model_50_005',
+                                               pitch_range=(190, 4000), step=4,
+                                               bach10_path=os.path.join(os.path.expanduser("~"), "violindataset",
+                                                                        "Bach10-mf0-synth"))
+    finetuned = bach10_evaluate_model_vs_equal_temperament('finetuned_instrument_model_50_005',
+                                               pitch_range=(190, 4000), step=4,
+                                               bach10_path=os.path.join(os.path.expanduser("~"), "violindataset",
+                                                                        "Bach10-mf0-synth"))
+    df_bach = pd.DataFrame(data = {'original':original,'violinPedagogue':violin_pedagogue,'finetuned':finetuned})
+
+
+    original = bach10_evaluate_model_vs_equal_temperament('original', instrument='violin', step=4,
+                                               bach10_path=os.path.join(os.path.expanduser("~"), "violindataset",
+                                                                        "Bach10-mf0-synth"))
+    violin_pedagogue = bach10_evaluate_model_vs_equal_temperament(
+        'no_pretrain_instrument_model_50_005',
+                                                                  step=4, instrument='violin',
+                                               bach10_path=os.path.join(os.path.expanduser("~"), "violindataset",
+                                                                        "Bach10-mf0-synth"))
+    finetuned = bach10_evaluate_model_vs_equal_temperament('finetuned_instrument_model_50_005',
+                                               step=4, instrument='violin',
+                                               bach10_path=os.path.join(os.path.expanduser("~"), "violindataset",
+                                                                        "Bach10-mf0-synth"))
+    df_vn_bach = pd.DataFrame(data = {'original':original,'violinPedagogue':violin_pedagogue,'finetuned':finetuned})
+
+
+    original = bach10_evaluate_model_vs_equal_temperament('original',
+                                               pitch_range=(190, 4000), step=4)
+    violin_pedagogue = bach10_evaluate_model_vs_equal_temperament('no_pretrain_instrument_model_50_005',
+                                               pitch_range=(190, 4000), step=4)
+    finetuned = bach10_evaluate_model_vs_equal_temperament('finetuned_instrument_model_50_005',
+                                               pitch_range=(190, 4000), step=4)
+    df_shift = pd.DataFrame(data = {'original':original,'violinPedagogue':violin_pedagogue,'finetuned':finetuned})
+
+
+    original = bach10_evaluate_model_vs_equal_temperament('original', instrument='violin', step=4)
+    violin_pedagogue = bach10_evaluate_model_vs_equal_temperament('no_pretrain_instrument_model_50_005',
+                                               step=4, instrument='violin')
+    finetuned = bach10_evaluate_model_vs_equal_temperament('finetuned_instrument_model_50_005',
+                                               step=4, instrument='violin')
+    df_vn_shift = pd.DataFrame(data = {'original':original,'violinPedagogue':violin_pedagogue,'finetuned':finetuned})
+
+
+    marker = [',', 'x', '.', 'P', '^']
+    cm = 2.2 / 2.54  # centimeters in inches
+    fig, axes = plt.subplots(2, 3, sharex=True, sharey=True, figsize=(17.2*cm, 7*cm))
+
+    df_vn_urmp.index = [str(_) + '-' + str(_ + 2) for _ in range(0, 50, 2)]
+    df_vn_urmp.plot(ax = axes[0,0], grid=True, legend=None, ylabel='RPA5 on violin tracks', title='URMP')
+
+    df_urmp.index = [str(_) + '-' + str(_+2) for _ in range(0, 50, 2)]
+    df_urmp.plot(ax = axes[1,0], grid=True, legend=None, ylabel='RPA5 all instruments (vn range)', xlabel='Ground Eq. Temp. Deviation (in cents)')
+
+    df_vn_bach.index = [str(_) + '-' + str(_+2) for _ in range(0, 50, 2)]
+    df_vn_bach.plot(ax = axes[0,1], grid=True, legend=None, title='Bach10-mf0-synth')
+
+    df_bach.index = [str(_) + '-' + str(_ + 2) for _ in range(0, 50, 2)]
+    df_bach.plot(ax = axes[1,1], grid=True, legend=None, xlabel='Ground Eq. Temp. Deviation (in cents)')
+
+    df_vn_shift.index = [str(_) + '-' + str(_+2) for _ in range(0, 50, 2)]
+    df_vn_shift.plot(ax = axes[0,2], grid=True, legend=None, title='Bach10 w/ pitch shifts')
+
+    df_shift.index = [str(_) + '-' + str(_+2) for _ in range(0, 50, 2)]
+    df_shift.plot(ax = axes[1,2], grid=True, xlabel='Ground Eq. Temp. Deviation (in cents)', legend=None)
+    for axe in axes:
+        for ax in axe:
+            for i, line in enumerate(ax.get_lines()):
+                line.set_marker(marker[i])
+    axes[1,2].legend(loc='lower right')
+    fig.tight_layout()
+    fig.show()
+    #for shift in range(0, 101, 10):
+    #    bach10_pitch_shift(pitch_shift_cents=shift)
 
