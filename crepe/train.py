@@ -38,7 +38,7 @@ def prepare_datasets(parent_folder, methods):
     v = []
     for name in validation:
         print("Collecting validation set {}:".format(name), file=sys.stderr)
-        dataset = validation_dataset(name, seed=42, take=100).take(options['validation_take']).collect(verbose=True)
+        dataset = validation_dataset(name, seed=42, take=200).take(options['validation_take']).collect(verbose=True)
         v.append(dataset)
 
     return train, v
@@ -99,10 +99,12 @@ class PitchAccuracyCallback(keras.callbacks.Callback):
 
 
 def main():
-    model_name = 'violin_range'
+    model_name = 'model_capacity_64'
     tfrecord_folder = 'tfrecord_standard_iter2_finetuned_standard'
     # options["load_model_weights"] = "models/original.h5"
 
+    options["validation_take"] = 8000
+    options["model_capacity"] = 64
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes", tfrecord_folder)
     names = sorted([_ for _ in os.listdir(dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
     train_set, val_sets = prepare_datasets(dataset_folder, names)
