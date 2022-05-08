@@ -7,37 +7,29 @@ import os
 import itertools
 import numpy as np
 
-validation_set_names = ["monoKreutzer", "monoKayser", "monoWohlfahrt"]
+
+validation_set_names = ["monoSuzuki", "monoDancla", "monoWohlfahrt", "monoSitt",
+                        "monoKayser", "monoMazas", "monoDontOp37", "monoKreutzer",
+                        "monoFiorillo", "monoRode", "monoGavinies", "monoDontOp35"]
 
 
-def prepare_datasets(parent_folder, grades):
-    gp = [[(grade, _.split('_')[1]) for _ in os.listdir(os.path.join(parent_folder, grade))] for grade in grades]
-    _, player = zip(*set(itertools.chain.from_iterable(gp)))
-    p, p_count = zip(*[(pl, player.count(pl)) for pl in sorted(list(set(player)))])
-    p, p_count = np.array(p), np.array(p_count)
-    possible_validation_players = p[p_count == 1]
-    possible_validation_players = ["SunKim", "TimRohwer"]
+def prepare_datasets(parent_folder, methods):
+
     train, validation = [], []
-    for grade in grades:
-        train_per_grade, validation_per_grade = [], []
-        paths = os.listdir(os.path.join(parent_folder, grade))
-        grade_players = [_.split('_')[1] for _ in paths]
-        try:
-            val_players_this_grade = list(set(grade_players).intersection(possible_validation_players))
-            player_counts = [grade_players.count(player) for player in val_players_this_grade]
-            validation_player = val_players_this_grade[np.argmin(player_counts)]
-        except:
-            print('no validation player for grade', grade)
-            validation_player = 'NONE'
-        for path in paths:
-            if validation_player in path:
-                if ".shiftedRESYN." not in path:
-                    validation_per_grade.append(os.path.join(parent_folder, grade, path))
+    for method in methods:
+        train_per_method, validation_per_method = [], []
+        paths = sorted(os.listdir(os.path.join(parent_folder, method)))
+        split_paths = [_.split('_', 3) for _ in paths]
+        for split_path in split_paths:
+            if int(split_path[2]) % 5 == 3:
+                if ".shiftedRESYN." not in split_path[3]:
+                    validation_per_method.append(os.path.join(parent_folder, method, '_'.join(split_path)))
             else:
-                train_per_grade.append(os.path.join(parent_folder, grade, path))
-        train.append(train_per_grade)
-        if validation_per_grade:
-            validation.append(validation_per_grade)
+                train_per_method.append(os.path.join(parent_folder, method, '_'.join(split_path)))
+
+        train.append(train_per_method)
+        if validation_per_method:
+            validation.append(validation_per_method)
 
     train = train_dataset(*train, batch_size=options['batch_size'], augment=options['augment'])
     print("Train dataset:", train, file=sys.stderr)
@@ -45,47 +37,25 @@ def prepare_datasets(parent_folder, grades):
     v = []
     for name in validation:
         print("Collecting validation set {}:".format(name), file=sys.stderr)
-        dataset = validation_dataset(name, batch_size=options['batch_size'],
-                                     seed=42, take=100).take(options['validation_take'])
+        dataset = validation_dataset(name, seed=42, take=100).take(options['validation_take']).collect(verbose=True)
         v.append(dataset)
 
     return train, v
 
-class LossHistory(keras.callbacks.Callback):
-    def __init__(self, validation_data):
-        super(keras.callbacks.Callback, self).__init__()
-        self.losses = []
-        self.val_losses = []
-        self.validation_data = validation_data
-        with open(log_path("loss_per_step.tsv"), "w") as f:
-            f.write('\t'.join(["step", "val_loss"]) + '\n')
-
-    def on_train_begin(self, logs=None):
-        self.losses = []
-        self.val_losses = []
-
-    def on_train_batch_end(self, batch, logs=None):
-        if batch % 250 == 0:
-            self.losses.append(logs.get('loss'))
-            self.val_losses.append(self.model.evaluate(self.validation_data))
-            step = int(batch//250)
-            val_loss = self.val_losses[-1]
-            print("step", step, "val_loss", val_loss)
-            with open(log_path("loss_per_step.tsv"), "a") as f:
-                f.write('\t'.join([str(step), str(val_loss)]) + '\n')
 
 class PitchAccuracyCallback(keras.callbacks.Callback):
     def __init__(self, val_sets, local_average=False):
         super().__init__()
-        self.val_sets = val_sets
+        self.val_sets = [(audio, to_weighted_average_cents(pitch)) for audio, pitch in val_sets]
         self.local_average = local_average
         self.to_cents = local_average and to_local_average_cents or to_weighted_average_cents
         self.prefix = local_average and 'local-average-' or 'default-'
+        self.mae = np.inf
         for filename in ["mae.tsv", "rpa.tsv", "rca.tsv", "rpa5.tsv", "rca5.tsv"]:
             with open(log_path(self.prefix + filename), "w") as f:
                 f.write('\t'.join(validation_set_names) + '\n')
 
-    def on_epoch_end(self, epoch, logs=None):
+    def on_epoch_end(self, epoch, logs={}):
         names = list(validation_set_names)
         print(file=sys.stderr)
 
@@ -110,6 +80,8 @@ class PitchAccuracyCallback(keras.callbacks.Callback):
             RCAs.append(rca)
             RPA5.append(rpa5)
             RCA5.append(rca5)
+        self.mae = np.mean(MAEs)
+        logs["mae"] = self.mae
 
         with open(log_path(self.prefix + "mae.tsv"), "a") as f:
             f.write('\t'.join(['%.6f' % mae for mae in MAEs]) + '\n')
@@ -126,23 +98,25 @@ class PitchAccuracyCallback(keras.callbacks.Callback):
 
 
 def main():
-    dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes", "tfrecord")
-    # dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "graded_repertoire", "tfrecord")
+    dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes", "tfrecord_standard_iter2_finetuned_standard")
     names = sorted([_ for _ in os.listdir(dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
     train_set, val_sets = prepare_datasets(dataset_folder, names)
-    val_data = val_sets[0]
-    for i, vs in enumerate(val_sets):
-        if i>0:
-            val_data.concatenate(vs)
+    val_data = Dataset.concat([Dataset(*val_set) for val_set in val_sets]).collect()
+
     options["load_model_weights"] = "models/original.h5"
-    options["save_model_weights"] = "april.h5"
+    options["save_model_weights"] = "finetuned_standard_iter2_mindelta001.h5"
+    options["steps_per_epoch"] = 1000
     model: keras.Model = build_model()
     model.summary()
 
-    model.fit(train_set, steps_per_epoch=options['steps_per_epoch'], epochs=options['epochs'],
-              callbacks=get_default_callbacks() + [LossHistory(val_data)],
-              # + [PitchAccuracyCallback(val_sets, local_average=True)],
-              validation_data=val_data)
+    model.fit_generator(iter(train_set), steps_per_epoch=options['steps_per_epoch'], epochs=options['epochs'],
+                        callbacks=get_default_callbacks() + [
+                            PitchAccuracyCallback(val_sets, local_average=True)
+                        ] + [
+                            keras.callbacks.EarlyStopping(monitor='mae', mode="min", patience=100, min_delta=0.01, verbose=1, restore_best_weights=True)
+                        ],
+                        validation_data=val_data)
+
 
 if __name__ == "__main__":
     main()

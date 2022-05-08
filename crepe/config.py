@@ -31,9 +31,9 @@ parser.add_argument('--save-model', default='model.h5',
                     help='path to save the model on each epoch')
 parser.add_argument('--save-model-weights', default=None,
                     help='path to save the model weights on each epoch; supersedes --save-model')
-parser.add_argument('--epochs', default=100, type=int,
+parser.add_argument('--epochs', default=300, type=int,
                     help='number of epochs to train')
-parser.add_argument('--steps-per-epoch', default=None, type=int,
+parser.add_argument('--steps-per-epoch', default=1000, type=int,
                     help='number of steps in a batch')
 parser.add_argument('--tensorboard', default=False, action='store_true',
                     help='when enabled, tensorboard data will be saved under the log directory')

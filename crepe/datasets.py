@@ -1,8 +1,9 @@
 import os
-import tensorflow as tf
+
+from flazy import Dataset
 from mir_eval.melody import hz2cents
 from scipy.stats import norm
-from functools import partial
+
 from transforms import *
 
 classifier_lowest_hz = 31.70
@@ -97,70 +98,35 @@ def to_viterbi_cents(salience):
     return np.array([to_local_average_cents(salience[i, :], path[i]) for i in range(len(observations))])
 
 
-def read_tfrecord(example):
-    tfrecord_format = (
-        {
-            "audio": tf.io.FixedLenFeature([1024], tf.float32),
-            "pitch": tf.io.FixedLenFeature([], tf.float32),
-        }
-    )
-    example = tf.io.parse_single_example(example, tfrecord_format)
-    return example['audio'], example['pitch']
-
-
-def load_dataset(filenames):
-    ignore_order = tf.data.Options()
-    ignore_order.experimental_deterministic = False  # disable order, increase speed
-    dataset = tf.data.TFRecordDataset(
-        filenames,  compression_type='GZIP'
-    )  # automatically interleaves reads from multiple files
-    dataset = dataset.with_options(
-        ignore_order
-    )  # uses data as soon as it streams in, rather than in its original order
-    dataset = dataset.map(
-        partial(read_tfrecord) , num_parallel_calls=tf.data.AUTOTUNE
-    )
-    # returns a dataset of (image, label) pairs if labeled=True or just images if labeled=False
-    return dataset
-
-def aud_norm(audio):
-    audio = audio - np.mean(audio, axis=1)[:, np.newaxis]
-    audio /= np.std(audio, axis=1)[:, np.newaxis]
-    return audio
-
-def pitch_cent(pitch):
-    pitch = hz2cents(pitch)
-    pitch = np.stack(list(map(to_classifier_label, pitch)))
-    return pitch
-
-def train_dataset(*names, batch_size=32, loop=True, augment=True):
+def train_dataset(*names, batch_size=32, loop=True, augment=True) -> Dataset:
     if len(names) == 0:
         raise ValueError("dataset names required")
 
     # LAST ONE FOR THE PARENT FOLDER
     paths = [j for i in names for j in i]  # join separate train paths (list of lists -> single list)
 
-    dataset = load_dataset(paths)
-    dataset = dataset.shuffle(2048)
-    dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
-    #if loop:
-    #    dataset = dataset.repeat()
-    dataset = dataset.batch(batch_size)
+    datasets = [Dataset.read.tfrecord(path, compression='gzip') for path in paths]
+    datasets = [dataset.select_tuple('audio', 'pitch') for dataset in datasets]
 
-    # Normalize the audio and convert f0 in hz to cents
-    dataset = dataset.map(
-        lambda x, y: (
-            tf.numpy_function(aud_norm, [x], Tout=tf.float32), tf.numpy_function(pitch_cent, [y], Tout=tf.float32)
-        ), num_parallel_calls=tf.data.AUTOTUNE
-    )
+    if loop:
+        datasets = [dataset.repeat() for dataset in datasets]
+
+    result = Dataset.roundrobin(datasets)
+    result = result.starmap(normalize)
 
     if augment:
-        print("NO AUGMENT IMPLEMENTED DURING TRAINING!! CONSIDER ADDITIVE NOISE")
+        result = result.starmap(add_noise)
+        result = result.starmap(pitch_shift)
 
-    return dataset
+    result = result.map(lambda x: (x[0], to_classifier_label(hz2cents(x[1]))))
+
+    if batch_size:
+        result = result.batch(batch_size)
+
+    return result
 
 
-def validation_dataset(*names, batch_size=32, seed=None, take=None):
+def validation_dataset(*names, seed=None, take=None) -> Dataset:
     if len(names) == 0:
         raise ValueError("dataset names required")
 
@@ -170,22 +136,18 @@ def validation_dataset(*names, batch_size=32, seed=None, take=None):
         if seed:
             files = Random(seed).sample(files, len(files))
 
-        dataset = load_dataset(files)
+        datasets = [Dataset.read.tfrecord(file, compression='gzip') for file in files]
+        datasets = [dataset.select_tuple('audio', 'pitch') for dataset in datasets]
 
         if seed:
-            dataset = dataset.shuffle(buffer_size=128, seed=seed)
+            datasets = [dataset.shuffle(seed=seed) for dataset in datasets]
         if take:
-            dataset = dataset.take(take)
+            datasets = [dataset.take(take) for dataset in datasets]
 
-        if all_datasets:
-            all_datasets.concatenate(dataset)
-        else:
-            all_datasets = dataset
-    all_datasets = all_datasets.batch(batch_size)
-    # Normalize the audio and convert f0 in hz to cents
-    all_datasets = all_datasets.map(
-        lambda x, y: (
-            tf.numpy_function(aud_norm, [x], Tout=tf.float32), tf.numpy_function(pitch_cent, [y], Tout=tf.float32)
-        ), num_parallel_calls=tf.data.AUTOTUNE
-    )
-    return all_datasets
+        all_datasets.append(Dataset.concat(datasets))
+
+    result = Dataset.roundrobin(all_datasets)
+    result = result.starmap(normalize)
+    result = result.map(lambda x: (x[0], to_classifier_label(hz2cents(x[1]))))
+
+    return result
