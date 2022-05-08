@@ -18,5 +18,5 @@ conda activate supervised
 module load CUDA
 module load cuDNN
 
-python train.py --no-augment --epochs 2 --batch-size 32
+python train.py --no-augment --epochs 10000 --batch-size 32
 
