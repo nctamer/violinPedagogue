@@ -6,6 +6,7 @@ from tensorflow import keras
 import os
 import itertools
 import numpy as np
+from predict import bach10_extract_pitch_with_model, urmp_all_instruments_extract_pitch_with_model, extract_pitch_with_model
 
 
 validation_set_names = ["monoSuzuki", "monoDancla", "monoWohlfahrt", "monoSitt",
@@ -104,8 +105,8 @@ def main():
     val_data = Dataset.concat([Dataset(*val_set) for val_set in val_sets]).collect()
 
     options["load_model_weights"] = "models/original.h5"
-    options["save_model_weights"] = "finetuned_standard_iter2_mindelta001.h5"
-    options["steps_per_epoch"] = 1000
+    options["save_model_weights"] = "dummy.h5"
+    options["steps_per_epoch"] = 2
     model: keras.Model = build_model()
     model.summary()
 
@@ -116,6 +117,26 @@ def main():
                             keras.callbacks.EarlyStopping(monitor='mae', mode="min", patience=100, min_delta=0.01, verbose=1, restore_best_weights=True)
                         ],
                         validation_data=val_data)
+
+
+    # Bach10-mf0-synth
+    bach10_extract_pitch_with_model(options["save_model_weights"], model, viterbi=False, verbose=1)
+    for pitch_shift in range(0, 101, 10):
+        bachpath = os.path.join(os.path.expanduser("~"), "violindataset", "Bach10-mf0-synth") \
+                   + '_' + str(pitch_shift) + 'c_shifted'
+        bach10_extract_pitch_with_model(options["save_model_weights"], model,
+                                        bach10_path=bachpath, viterbi=False, verbose=1)
+
+    # ViolinPedagogue
+    extract_pitch_with_model(model_name=options["save_model_weights"], model=model,
+                             main_dataset_folder=os.path.join(os.path.expanduser("~"),
+                                                              "violindataset", "monophonic_etudes"),
+                             save_activation=False, viterbi=True, verbose=0)
+
+    # URMP
+    urmp_all_instruments_extract_pitch_with_model(options["save_model_weights"], model, viterbi=False, verbose=1)
+
+
 
 
 if __name__ == "__main__":
