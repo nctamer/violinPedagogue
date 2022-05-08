@@ -1,5 +1,9 @@
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import Model
+try:
+    from datasets import classifier_total_bins
+except ImportError:
+    from crepe.datasets import classifier_total_bins
 
 
 def crepe(optimizer, model_capacity=32, **_) -> Model:
@@ -21,7 +25,7 @@ def crepe(optimizer, model_capacity=32, **_) -> Model:
 
     y = Permute((2, 1, 3), name="transpose")(y)
     y = Flatten(name="flatten")(y)
-    y = Dense(360, activation='sigmoid', name="classifier")(y)
+    y = Dense(classifier_total_bins, activation='sigmoid', name="classifier")(y)
 
     model = Model(inputs=x, outputs=y)
     model.compile(optimizer, 'binary_crossentropy')
@@ -51,7 +55,7 @@ def rescrepe(optimizer, model_capacity=32, **_) -> Model:
 
     y = Permute((2, 1, 3), name="transpose")(y)
     y = Flatten(name="flatten")(y)
-    y = Dense(360, activation='sigmoid', name="classifier")(y)
+    y = Dense(classifier_total_bins, activation='sigmoid', name="classifier")(y)
 
     model = Model(inputs=x, outputs=y)
     model.compile(optimizer, 'binary_crossentropy')
@@ -80,7 +84,7 @@ def short(optimizer, model_capacity=32, **_) -> Model:
 
     y = Permute((2, 1, 3), name="transpose")(y)
     y = Flatten(name="flatten")(y)
-    y = Dense(360, activation='sigmoid', name="classifier")(y)
+    y = Dense(classifier_total_bins, activation='sigmoid', name="classifier")(y)
 
     model = Model(inputs=x, outputs=y)
     model.compile(optimizer, 'binary_crossentropy')
@@ -107,7 +111,7 @@ def dilated(optimizer, model_capacity=32, **_) -> Model:
 
     y = AvgPool2D(pool_size=(64, 1), padding='valid', name="avgpool")(y)
     y = Flatten(name="flatten")(y)
-    y = Dense(360, activation='sigmoid', name="classifier")(y)
+    y = Dense(classifier_total_bins, activation='sigmoid', name="classifier")(y)
 
     model = Model(inputs=x, outputs=y)
     model.compile(optimizer, 'binary_crossentropy')

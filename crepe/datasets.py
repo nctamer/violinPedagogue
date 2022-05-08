@@ -6,14 +6,14 @@ from scipy.stats import norm
 
 from transforms import *
 
-classifier_lowest_hz = 31.70
+classifier_lowest_hz = 180 #31.70
 classifier_lowest_cent = hz2cents(np.array([classifier_lowest_hz]))[0]
-classifier_cents_per_bin = 20
-classifier_octaves = 6
+classifier_cents_per_bin = 10 #20
+classifier_octaves = 4 #6
 classifier_total_bins = int((1200 / classifier_cents_per_bin) * classifier_octaves)
 classifier_cents = np.linspace(0, (classifier_total_bins - 1) * classifier_cents_per_bin, classifier_total_bins) + classifier_lowest_cent
 classifier_cents_2d = np.expand_dims(classifier_cents, axis=1)
-classifier_norm_stdev = 25
+classifier_norm_stdev = 20 #25
 classifier_pdf_normalizer = norm.pdf(0)
 
 
@@ -50,7 +50,7 @@ def to_local_average_cents(salience, center=None):
 
     if not hasattr(to_local_average_cents, 'cents_mapping'):
         # the bin number-to-cents mapping
-        to_local_average_cents.mapping = np.linspace(0, 7180, 360) + 1997.3794084376191
+        to_local_average_cents.mapping = classifier_cents
 
     if salience.ndim == 1:
         if center is None:

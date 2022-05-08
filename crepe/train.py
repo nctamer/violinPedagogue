@@ -99,14 +99,18 @@ class PitchAccuracyCallback(keras.callbacks.Callback):
 
 
 def main():
-    dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes", "tfrecord_standard_iter2_finetuned_standard")
+    model_name = 'violin_range'
+    tfrecord_folder = 'tfrecord_standard_iter2_finetuned_standard'
+    options["load_model_weights"] = "models/original.h5"
+
+    dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes", tfrecord_folder)
     names = sorted([_ for _ in os.listdir(dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
     train_set, val_sets = prepare_datasets(dataset_folder, names)
     val_data = Dataset.concat([Dataset(*val_set) for val_set in val_sets]).collect()
 
-    options["load_model_weights"] = "models/original.h5"
-    options["save_model_weights"] = "dummy.h5"
-    options["steps_per_epoch"] = 2
+
+    options["save_model_weights"] = model_name + ".h5"
+    options["steps_per_epoch"] = 1000
     model: keras.Model = build_model()
     model.summary()
 
@@ -120,7 +124,7 @@ def main():
 
 
     # Bach10-mf0-synth
-    bach10_extract_pitch_with_model(options["save_model_weights"], model, viterbi=False, verbose=1)
+    bach10_extract_pitch_with_model(model_name, model, viterbi=False, verbose=1)
     for pitch_shift in range(0, 101, 10):
         bachpath = os.path.join(os.path.expanduser("~"), "violindataset", "Bach10-mf0-synth") \
                    + '_' + str(pitch_shift) + 'c_shifted'
@@ -128,13 +132,13 @@ def main():
                                         bach10_path=bachpath, viterbi=False, verbose=1)
 
     # ViolinPedagogue
-    extract_pitch_with_model(model_name=options["save_model_weights"], model=model,
+    extract_pitch_with_model(model_name=model_name, model=model,
                              main_dataset_folder=os.path.join(os.path.expanduser("~"),
                                                               "violindataset", "monophonic_etudes"),
                              save_activation=False, viterbi=True, verbose=0)
 
     # URMP
-    urmp_all_instruments_extract_pitch_with_model(options["save_model_weights"], model, viterbi=False, verbose=1)
+    urmp_all_instruments_extract_pitch_with_model(model_name, model, viterbi=False, verbose=1)
 
 
 
