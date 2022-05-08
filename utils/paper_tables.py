@@ -1,4 +1,4 @@
-from utils.extract_pitch import urmp_evaluate_all_except_one_instrument, urmp_evaluate_per_instrument, bach10_evaluate_all
+from extract_pitch import urmp_evaluate_all_except_one_instrument, urmp_evaluate_per_instrument, bach10_evaluate_all
 import pandas as pd
 
 
