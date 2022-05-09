@@ -6,14 +6,14 @@ from scipy.stats import norm
 
 from transforms import *
 
-classifier_lowest_hz = 180 #31.70
+classifier_lowest_hz = 174.61 #31.70
 classifier_lowest_cent = hz2cents(np.array([classifier_lowest_hz]))[0]
 classifier_cents_per_bin = 10 #20
 classifier_octaves = 4 #6
 classifier_total_bins = int((1200 / classifier_cents_per_bin) * classifier_octaves)
 classifier_cents = np.linspace(0, (classifier_total_bins - 1) * classifier_cents_per_bin, classifier_total_bins) + classifier_lowest_cent
 classifier_cents_2d = np.expand_dims(classifier_cents, axis=1)
-classifier_norm_stdev = 20 #25
+classifier_norm_stdev = 15 #25
 classifier_pdf_normalizer = norm.pdf(0)
 
 
