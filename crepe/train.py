@@ -99,12 +99,12 @@ class PitchAccuracyCallback(keras.callbacks.Callback):
 
 
 def main():
-    model_name = 'model_capacity_64_v2'
+    model_name = 'violin_range_v2'
     tfrecord_folder = 'tfrecord_standard_iter2_finetuned_standard'
-    options["load_model_weights"] = "models/model_capacity_64.h5"
+    options["load_model_weights"] = "models/violin_range_v2.h5"
 
     options["validation_take"] = 6000
-    options["model_capacity"] = 64
+    # options["model_capacity"] = 64
     dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes", tfrecord_folder)
     names = sorted([_ for _ in os.listdir(dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
     train_set, val_sets = prepare_datasets(dataset_folder, names)
