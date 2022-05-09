@@ -13,9 +13,9 @@ import sys
 import re
 from scipy.stats import norm
 try:
-    from datasets import to_local_average_cents
+    from datasets import to_local_average_cents, classifier_total_bins, classifier_cents_per_bin
 except ImportError:
-    from crepe.datasets import to_local_average_cents
+    from crepe.datasets import to_local_average_cents, classifier_total_bins, classifier_cents_per_bin
 
 
 URMP_INSTRUMENTS = ["vn", "va", "vc", "db", "fl", "ob", "cl", "sax", "bn", "tpt", "hn", "tbn", "tba"]
@@ -41,11 +41,12 @@ def to_viterbi_cents(salience):
 
     # transition probabilities inducing continuous pitch
     # big changes are penalized with one order of magnitude
-    transition = gaussian_filter1d(np.eye(360), 30) + 9*gaussian_filter1d(np.eye(360), 2)
+    transition = gaussian_filter1d(np.eye(classifier_total_bins), int(np.ceil(600/classifier_cents_per_bin))) + \
+                 (9*gaussian_filter1d(np.eye(classifier_total_bins), int(np.floor(50/classifier_cents_per_bin))))
     transition = transition / np.sum(transition, axis=1)[:, None]
 
     p = salience/salience.sum(axis=1)[:, None]
-    p[np.isnan(p.sum(axis=1)), :] = np.ones(360) * 1/360
+    p[np.isnan(p.sum(axis=1)), :] = np.ones(classifier_total_bins) * 1/classifier_total_bins
     path = viterbi_discriminative(p.T, transition)
 
     return path, np.array([to_local_average_cents(salience[i, :], path[i]) for i in
@@ -61,21 +62,22 @@ def to_weird_viterbi_cents(salience):
     from hmmlearn import hmm
 
     # uniform prior on the starting pitch
-    starting = np.ones(360) / 360
+    starting = np.ones(classifier_total_bins) / classifier_total_bins
 
     # transition probabilities inducing continuous pitch
-    xx, yy = np.meshgrid(range(360), range(360))
-    transition = np.maximum(12 - abs(xx - yy), 0)
+    xx, yy = np.meshgrid(range(classifier_total_bins), range(classifier_total_bins))
+    transition = np.maximum(int(np.floor(250/classifier_cents_per_bin)) - abs(xx - yy), 0)
     transition = transition / np.sum(transition, axis=1)[:, None]
 
     # emission probability = fixed probability for self, evenly distribute the
     # others
     self_emission = 0.1
-    emission = (np.eye(360) * self_emission + np.ones(shape=(360, 360)) *
-                ((1 - self_emission) / 360))
+    emission = (np.eye(classifier_total_bins) * self_emission +
+                np.ones(shape=(classifier_total_bins, classifier_total_bins)) *
+                ((1 - self_emission) / classifier_total_bins))
 
     # fix the model parameters because we are not optimizing the model
-    model = hmm.MultinomialHMM(360, starting, transition)
+    model = hmm.MultinomialHMM(classifier_total_bins, starting, transition)
     model.startprob_, model.transmat_, model.emissionprob_ = \
         starting, transition, emission
 

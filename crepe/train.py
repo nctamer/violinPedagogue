@@ -132,16 +132,15 @@ def main():
         bach10_extract_pitch_with_model(options["save_model_weights"], model,
                                         bach10_path=bachpath, viterbi=False, verbose=1)
 
+    # URMP
+    urmp_all_instruments_extract_pitch_with_model(model_name, model, viterbi=False, verbose=1)
+
+
     # ViolinPedagogue
     extract_pitch_with_model(model_name=model_name, model=model,
                              main_dataset_folder=os.path.join(os.path.expanduser("~"),
                                                               "violindataset", "monophonic_etudes"),
                              save_activation=False, viterbi=True, verbose=0)
-
-    # URMP
-    urmp_all_instruments_extract_pitch_with_model(model_name, model, viterbi=False, verbose=1)
-
-
 
 
 if __name__ == "__main__":
