@@ -139,65 +139,51 @@ def urmp_evaluate_model_vs_equal_temperament(model_name, pitch_range=None, step=
 
 
 if __name__ == '__main__':
-    original = urmp_evaluate_model_vs_equal_temperament('original', pitch_range=(190, 4000), step=4)
-    violin_pedagogue = urmp_evaluate_model_vs_equal_temperament(
-        'no_pretrain_instrument_model_50_005', pitch_range=(190, 4000), step=4)
-    finetuned = urmp_evaluate_model_vs_equal_temperament('finetuned_instrument_model_50_005',
-                                                         pitch_range=(190, 4000), step=4)
-    df_urmp = pd.DataFrame(data = {'original':original,'violinPedagogue':violin_pedagogue,'finetuned':finetuned})
+    model_names = {'original': 'original',
+                   'violinPedagogue': 'no_pretrain_instrument_model_50_005',
+                   'finetuned': 'finetuned_instrument_model_50_005',
+                   'violinPedagogueNOshift': 'no_pretrain_standard_no_pitch_shift',
+                   'finetunedNOshift': 'finetuned_standard_no_pitch_shift'}
 
-    original = urmp_evaluate_model_vs_equal_temperament('original', instrument='vn', step=4)
-    violin_pedagogue = urmp_evaluate_model_vs_equal_temperament(
-        'no_pretrain_instrument_model_50_005', instrument='vn', step=4)
-    finetuned = urmp_evaluate_model_vs_equal_temperament('finetuned_instrument_model_50_005', instrument='vn', step=4)
-    df_vn_urmp = pd.DataFrame(data={'original': original, 'violinPedagogue': violin_pedagogue, 'finetuned': finetuned})
+    df_bach = {}
+    for show_name, name in model_names.items():
+        df_bach[show_name] = bach10_evaluate_model_vs_equal_temperament(name, pitch_range=(190, 4000), step=4,
+                                                                        bach10_path=os.path.join(
+                                                                            os.path.expanduser("~"), "violindataset",
+                                                                            "Bach10-mf0-synth"))
+    df_bach = pd.DataFrame(data=df_bach)
 
-    original = bach10_evaluate_model_vs_equal_temperament('original',
-                                               pitch_range=(190, 4000), step=4,
-                                               bach10_path=os.path.join(os.path.expanduser("~"), "violindataset",
-                                                                        "Bach10-mf0-synth"))
-    violin_pedagogue = bach10_evaluate_model_vs_equal_temperament('no_pretrain_instrument_model_50_005',
-                                               pitch_range=(190, 4000), step=4,
-                                               bach10_path=os.path.join(os.path.expanduser("~"), "violindataset",
-                                                                        "Bach10-mf0-synth"))
-    finetuned = bach10_evaluate_model_vs_equal_temperament('finetuned_instrument_model_50_005',
-                                               pitch_range=(190, 4000), step=4,
-                                               bach10_path=os.path.join(os.path.expanduser("~"), "violindataset",
-                                                                        "Bach10-mf0-synth"))
-    df_bach = pd.DataFrame(data = {'original':original,'violinPedagogue':violin_pedagogue,'finetuned':finetuned})
+    df_vn_bach = {}
+    for show_name, name in model_names.items():
+        df_vn_bach[show_name] = bach10_evaluate_model_vs_equal_temperament(name, instrument='violin', step=4,
+                                                                           bach10_path=os.path.join(
+                                                                               os.path.expanduser("~"), "violindataset",
+                                                                               "Bach10-mf0-synth"))
+    df_vn_bach = pd.DataFrame(data=df_vn_bach)
 
 
-    original = bach10_evaluate_model_vs_equal_temperament('original', instrument='violin', step=4,
-                                               bach10_path=os.path.join(os.path.expanduser("~"), "violindataset",
-                                                                        "Bach10-mf0-synth"))
-    violin_pedagogue = bach10_evaluate_model_vs_equal_temperament(
-        'no_pretrain_instrument_model_50_005',
-                                                                  step=4, instrument='violin',
-                                               bach10_path=os.path.join(os.path.expanduser("~"), "violindataset",
-                                                                        "Bach10-mf0-synth"))
-    finetuned = bach10_evaluate_model_vs_equal_temperament('finetuned_instrument_model_50_005',
-                                               step=4, instrument='violin',
-                                               bach10_path=os.path.join(os.path.expanduser("~"), "violindataset",
-                                                                        "Bach10-mf0-synth"))
-    df_vn_bach = pd.DataFrame(data = {'original':original,'violinPedagogue':violin_pedagogue,'finetuned':finetuned})
+    df_urmp = {}
+    for show_name, name in model_names.items():
+        df_urmp[show_name] = urmp_evaluate_model_vs_equal_temperament(name, pitch_range=(190, 4000), step=4)
+    df_urmp = pd.DataFrame(data = df_urmp)
+
+    df_vn_urmp = {}
+    for show_name, name in model_names.items():
+        df_vn_urmp[show_name] = urmp_evaluate_model_vs_equal_temperament(name, instrument='vn', step=4)
+    df_vn_urmp = pd.DataFrame(data=df_vn_urmp)
 
 
-    original = bach10_evaluate_model_vs_equal_temperament('original',
-                                               pitch_range=(190, 4000), step=4)
-    violin_pedagogue = bach10_evaluate_model_vs_equal_temperament('no_pretrain_instrument_model_50_005',
-                                               pitch_range=(190, 4000), step=4)
-    finetuned = bach10_evaluate_model_vs_equal_temperament('finetuned_instrument_model_50_005',
-                                               pitch_range=(190, 4000), step=4)
-    df_shift = pd.DataFrame(data = {'original':original,'violinPedagogue':violin_pedagogue,'finetuned':finetuned})
 
 
-    original = bach10_evaluate_model_vs_equal_temperament('original', instrument='violin', step=4)
-    violin_pedagogue = bach10_evaluate_model_vs_equal_temperament('no_pretrain_instrument_model_50_005',
-                                               step=4, instrument='violin')
-    finetuned = bach10_evaluate_model_vs_equal_temperament('finetuned_instrument_model_50_005',
-                                               step=4, instrument='violin')
-    df_vn_shift = pd.DataFrame(data = {'original':original,'violinPedagogue':violin_pedagogue,'finetuned':finetuned})
+    df_shift = {}
+    for show_name, name in model_names.items():
+        df_shift[show_name] = bach10_evaluate_model_vs_equal_temperament(name, pitch_range=(190, 4000), step=4)
+    df_shift = pd.DataFrame(data = df_shift)
 
+    df_vn_shift = {}
+    for show_name, name in model_names.items():
+        df_vn_shift[show_name] = bach10_evaluate_model_vs_equal_temperament(name, instrument='violin', step=4)
+    df_vn_shift = pd.DataFrame(data = df_vn_shift)
 
     marker = [',', 'x', '.', 'P', '^']
     cm = 2.2 / 2.54  # centimeters in inches
@@ -227,6 +213,7 @@ if __name__ == '__main__':
     axes[1,2].legend(loc='lower right')
     fig.tight_layout()
     fig.show()
+    fig.savefig("fig_pitch_shift.pdf", bbox_inches='tight')
     #for shift in range(0, 101, 10):
     #    bach10_pitch_shift(pitch_shift_cents=shift)
 
