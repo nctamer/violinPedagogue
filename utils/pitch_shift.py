@@ -141,9 +141,7 @@ def urmp_evaluate_model_vs_equal_temperament(model_name, pitch_range=None, step=
 if __name__ == '__main__':
     model_names = {'original': 'original',
                    'violinPedagogue': 'no_pretrain_instrument_model_50_005',
-                   'finetuned': 'finetuned_instrument_model_50_005',
-                   'violinPedagogueNOshift': 'no_pretrain_standard_no_pitch_shift',
-                   'finetunedNOshift': 'finetuned_standard_no_pitch_shift'}
+                   'finetuned': 'finetuned_instrument_model_50_005'}
 
     df_bach = {}
     for show_name, name in model_names.items():
@@ -206,6 +204,7 @@ if __name__ == '__main__':
 
     df_shift.index = [str(_) + '-' + str(_+2) for _ in range(0, 50, 2)]
     df_shift.plot(ax = axes[1,2], grid=True, xlabel='Ground Eq. Temp. Deviation (in cents)', legend=None)
+
     for axe in axes:
         for ax in axe:
             for i, line in enumerate(ax.get_lines()):
