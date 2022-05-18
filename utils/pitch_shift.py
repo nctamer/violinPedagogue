@@ -139,9 +139,9 @@ def urmp_evaluate_model_vs_equal_temperament(model_name, pitch_range=None, step=
 
 
 if __name__ == '__main__':
-    model_names = {'original': 'original',
-                   'violinPedagogue': 'no_pretrain_instrument_model_50_005',
-                   'finetuned': 'finetuned_instrument_model_50_005'}
+    model_names = {'Pretrained CREPE': 'original',
+                   'Tr. on only Violin Etudes': 'no_pretrain_instrument_model_50_005',
+                   'Finetuned on Violin Etudes': 'finetuned_instrument_model_50_005'}
 
     df_bach = {}
     for show_name, name in model_names.items():
