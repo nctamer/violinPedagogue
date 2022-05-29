@@ -155,6 +155,43 @@ def extract_pitch_with_model(model_name, main_dataset_folder=os.path.join(os.pat
                            activation_files=activation_files, viterbi=viterbi, verbose=verbose)
     return
 
+def ViolinEtudes_extract_pitch_with_model(model_name, main_dataset_folder=os.path.join(os.path.expanduser("~"),
+                                                                                       "ViolinEtudes"),
+                             viterbi=True, verbose=1):
+    out_name = model_name
+    if viterbi=='weird':
+        out_name += '_weird'
+    elif viterbi==False:
+        out_name += '_no_viterbi'
+    paths = gen_paths(main_path=main_dataset_folder, model_name=model_name)
+
+    model_path = os.path.join('..', 'crepe', 'models', model_name + '.h5')
+
+    audio_files, output_f0_files = [], []
+    for p in paths:
+        audio_files.append(p['original'])
+        output_f0_files.append('f0')
+
+    predict_from_file_list(audio_files, output_f0_files, model_path, viterbi=viterbi, verbose=verbose)
+    return
+
+
+def gen_paths(main_path, model_name):
+    originals = glob.glob(os.path.join(main_path, 'original', '*', '*', '*.mp3'))
+    paths = []
+    for i, original in enumerate(originals):
+        split = original.split('/')
+        f0_folder = '/'.join(split[:-4] + ['f0s', model_name] + split[-3:-1])
+        if not os.path.exists(f0_folder):
+            os.makedirs(f0_folder)
+        p = {
+            'original': original,
+            'f0': '/'.join(split[:-4] + ['f0s', model_name] + split[-3:]).rsplit('.',maxsplit=1)[0] + '.f0.csv',
+        }
+        paths.append(p)
+    return paths
+
+
 
 def single_file_extract_pitch_with_model(audio_file, output_f0_file=None, model_name='original',
                                          viterbi=True, verbose=1):
@@ -327,8 +364,16 @@ def urmp_evaluate_all(urmp_path=os.path.join(os.path.expanduser("~"), "violindat
 
 
 if __name__ == '__main__':
-    new_model_name = 'no_pretrain_standard_no_pitch_shift'
+    new_model_name = 'finetuned_instrument_model_100_005'
+    ViolinEtudes_extract_pitch_with_model(model_name=new_model_name,
+                             main_dataset_folder=os.path.join(os.path.expanduser("~"),
+                                                              "violindataset", "monoEtudes_ids", "ViolinEtudes"),
+                             viterbi=True, verbose=0)
 
+
+
+
+    '''
     # Bach10-mf0-synth
     bach10_extract_pitch_with_model(new_model_name, viterbi=False, verbose=1)
     for pitch_shift in range(0, 101, 10):
@@ -347,8 +392,8 @@ if __name__ == '__main__':
 
 
 
-
-    '''
+    
+    
     external_data_extract_pitch_with_model(model_name=new_model_name,
                                            external_data_path=os.path.join(os.path.expanduser("~"),
                                                                            "violindataset", "monophonic_etudes",
