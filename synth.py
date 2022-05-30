@@ -1,7 +1,5 @@
 import copy
-import os
-import numpy as np
-import librosa
+from tqdm import tqdm
 import pandas as pd
 from scipy import interpolate
 from scipy.signal import get_window, medfilt
@@ -10,6 +8,13 @@ import sys
 import pickle
 import random
 from pathlib import Path
+import glob
+import os
+import tensorflow.compat.v1 as tf
+import librosa
+import numpy as np
+
+options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
 
 if os.path.join(Path().absolute(), 'sms_tools', 'models') not in sys.path:
     sys.path.append(os.path.join(Path().absolute(), 'sms_tools', 'models'))
@@ -334,6 +339,104 @@ def process_file(filename, path_folder_audio, path_folder_f0, path_folder_synth,
     return
 
 
+def synth_file(paths, instrument_detector=None, refine_twm=True, pitch_shift=False,
+               th_lc=0.2, th_hc=0.7, voiced_th_ms=100, sawtooth_synth=False):
+    time_start = taymit()
+    audio = librosa.load(paths['original'], sr=SAMPLING_RATE, mono=True)[0]
+    f0s = pd.read_csv(paths['f0'])
+    filename = ' '.join(paths['original'].split('/')[-3:])
+    f0s["confidence"] = f0s["confidence"].fillna(0)
+    pre_anal_coverage = f0s['confidence'] > th_lc
+    pre_anal_coverage = sum(pre_anal_coverage) / len(pre_anal_coverage)
+    f0s = silence_unvoiced_segments(f0s, low_confidence_threshold=th_lc, high_confidence_threshold=th_hc,
+                                    min_voiced_segment_ms=voiced_th_ms)
+    # f0s = apply_pitch_filter(f0s, min_chunk_size=21, median=True, confidence_threshold=th_hc)
+    f0s, conf, time = interpolate_f0_to_sr(f0s, audio)
+    time_load = taymit()
+    print("loading {:s} took {:.3f}".format(filename, time_load - time_start))
+    hfreqs, hmags, hphases = anal(audio, f0s, n_harmonics=40)
+    f0s = f0s[:len(hmags)]
+    conf = conf[:len(hmags)]
+    time = time[:len(hmags)]
+    time_anal = taymit()
+    print("anal {:s} took {:.3f}".format(filename, time_anal - time_load))
+    if instrument_detector is not None:
+        hfreqs, hmags, hphases, f0 = supress_timbre_anomalies(instrument_detector, hfreqs, hmags, hphases, f0s)
+    if refine_twm:
+        hfreqs, hmags, hphases, f0s = refine_harmonics_twm(hfreqs, hmags, hphases,
+                                                           f0s, f0et=5.0, f0_refinement_range_cents=16,
+                                                           min_voiced_segment_ms=voiced_th_ms)
+    time_refine = taymit()
+    post_anal_coverage = sum(f0s > 0) / len(f0s)
+    coverage = post_anal_coverage / pre_anal_coverage
+    print("refining parameters for {:s} took {:.3f}. coverage: {:.3f}".format(filename,
+                                                                              time_refine - time_anal,
+                                                                              coverage))
+    if sawtooth_synth:
+        hmags[f0s > 0] = -30 - 20 * np.log10(np.arange(1, 41))
+        hfreqs[f0s > 0] = np.dot(hfreqs[f0s > 0][:, 0][:, np.newaxis], np.arange(1, 41)[np.newaxis, :])
+        hphases = np.array([])
+    harmonic_audio = SM.sineModelSynth(hfreqs, hmags, hphases, N=512, H=HOP_SIZE, fs=SAMPLING_RATE)
+    sf.write(paths['synth'], harmonic_audio, 44100, 'PCM_24')
+    df = pd.DataFrame([time, f0s]).T
+    df.to_csv(paths['synth_f0'], header=False, index=False,
+              float_format='%.6f')
+    tfrecord_file(paths, 'synth')
+    if pitch_shift:
+        sign = random.choice([-1, 1])
+        val = random.choice(range(5, 50))
+        pitch_shift_cents = sign * val
+
+        alt_f0s = f0s * pow(2, (pitch_shift_cents / 1200))
+        # Synthesize audio with the shifted harmonic content
+        alt_hfreqs = hfreqs * pow(2, (pitch_shift_cents / 1200))
+        alt_harmonic_audio = SM.sineModelSynth(alt_hfreqs, hmags, np.array([]), N=512, H=HOP_SIZE, fs=SAMPLING_RATE)
+        sf.write(paths['shifted'], alt_harmonic_audio,
+                 44100, 'PCM_24')
+        df = pd.DataFrame([time, alt_f0s]).T
+        df.to_csv(paths['shifted_f0'], header=False, index=False, float_format='%.6f')
+        tfrecord_file(paths, 'shifted')
+
+    time_synth = taymit()
+    print("synthesizing {:s} took {:.3f}. Total resynthesis took {:.3f}".format(filename, time_synth - time_refine,
+                                                                                time_synth - time_load))
+    return
+
+
+def tfrecord_file(paths, name='synth'):
+    labels = np.loadtxt(paths[name+'_f0'], delimiter=',')
+
+    nonzero = labels[:, 1] > 0
+    absdiff = np.abs(np.diff(np.concatenate(([False], nonzero, [False]))))
+    ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
+    nonzero[ranges[:, 0]] = False
+    nonzero[ranges[:, 1]-1] = False
+    # get rid of the boundary points since it may contain some artifacts
+    # since the hop size in synthesis is 2.9 ms it roughly corresponds to 512/16000
+    labels = labels[nonzero, :]
+
+    if len(labels):
+        sr = 16000
+        audio = librosa.load(paths[name], sr=sr)[0]
+
+        output_path = paths[name+'_tfrecord']
+        writer = tf.python_io.TFRecordWriter(output_path, options=options)
+
+        for row in tqdm(labels):
+            pitch = row[1]
+            center = int(row[0] * sr)
+            segment = audio[center - 512:center + 512]
+            if len(segment) == 1024:
+                example = tf.train.Example(features=tf.train.Features(feature={
+                    "audio": tf.train.Feature(float_list=tf.train.FloatList(value=segment)),
+                    "pitch": tf.train.Feature(float_list=tf.train.FloatList(value=[pitch]))
+                }))
+                writer.write(example.SerializeToString())
+        writer.close()
+    return
+
+
+
 def process_folder(path_folder_audio, path_folder_f0, path_folder_synth, pitch_shift=False,
                    instrument_detector=None, refine_twm=True,
                    th_lc=0.2, th_hc=0.7, voiced_th_ms=100, sawtooth_synth=False, n_jobs=4):
@@ -347,14 +450,43 @@ def process_folder(path_folder_audio, path_folder_f0, path_folder_synth, pitch_s
                             for pr_file in sorted(os.listdir(path_folder_audio)))
     return
 
+def gen_paths(main_path, modeln, suffix, pitch_shift=False):
+    originals = sorted(glob.glob(os.path.join(main_path, 'original', '*', '*', '*.mp3')))
+    paths = []
+    for i, original in enumerate(originals):
+        split = original.split('/')
+        resynth_folder = '/'.join(split[:-4] + ['resynth', suffix] + split[-3:-1])
+        tfrecord_folder = '/'.join(split[:-4] + ['tfrecord', suffix] + split[-3:-1])
+        if not os.path.exists(resynth_folder):
+            os.makedirs(resynth_folder)
+        if not os.path.exists(tfrecord_folder):
+            os.makedirs(tfrecord_folder)
+        p = {
+            'original': original,
+            'f0': '/'.join(split[:-4] + ['f0s', modeln] + split[-3:]).rsplit('.',maxsplit=1)[0] + '.f0.csv',
+            'synth': '/'.join(split[:-4] + ['resynth', suffix] + split[-3:]).rsplit('.',maxsplit=1)[0] + '.RESYN.wav',
+            'synth_f0': '/'.join(split[:-4] + ['resynth', suffix] +
+                                 split[-3:]).rsplit('.', maxsplit=1)[0] + '.RESYN.csv',
+            'synth_tfrecord': '/'.join(split[:-4] + ['tfrecord', suffix] +
+                                       split[-3:]).rsplit('.', maxsplit=1)[0] + '.RESYN.tfrecord'
+        }
+        if pitch_shift:
+            p['shifted'] = '/'.join(split[:-4] + ['resynth', suffix] + split[-3:]).rsplit('.',maxsplit=1)[0] + \
+                           '.shiftedRESYN.wav'
+            p['shifted_f0'] = '/'.join(split[:-4] + ['resynth', suffix] + split[-3:]).rsplit('.', maxsplit=1)[0] +\
+                              '.shiftedRESYN.csv'
+            p['shifted_tfrecord'] = '/'.join(split[:-4] + ['tfrecord', suffix] +
+                                    split[-3:]).rsplit('.', maxsplit=1)[0] + '.shiftedRESYN.tfrecord'
+        paths.append(p)
+    return paths
+
 
 if __name__ == '__main__':
 
-    dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monophonic_etudes")
-    names = sorted([_ for _ in os.listdir(dataset_folder) if (_.startswith('L') or _.startswith('mono'))])
-    model = "finetuned_standard"
+    dataset_folder = os.path.join(os.path.expanduser("~"), "ViolinEtudes")
+    model = "finetuned_instrument_model_100_005"
     iteration_if_applicable = 2 # do not use if starting from the original model
-    use_instrument_model = False  # only use for the ablation study *standard analysis-synthesis without the instrument model
+    use_instrument_model = True  # only use for the ablation study *standard analysis-synthesis without the instrument model
 
     low_confidence_threshold = 0.3
     high_confidence_threshold = 0.7
@@ -364,9 +496,9 @@ if __name__ == '__main__':
     use_sawtooth_timbre = False
 
     if use_instrument_model:
-        num_filters = 50
+        num_filters = 100
         contamination = 0.05
-        estimate_instrument_model = True
+        estimate_instrument_model = False
         inst_model_use_existing_anal_files = True
         name_suffix = "_instrument_model_" + str(num_filters) + '_' + str(contamination)
     else:  # for the ablation study, simple analysis-synthesis described in Salomon paper.
@@ -378,7 +510,7 @@ if __name__ == '__main__':
         name_suffix = name_suffix + "_iter" + str(iteration_if_applicable)
     name_suffix = name_suffix + "_" + model
 
-
+    paths_list = gen_paths(dataset_folder, modeln=model, suffix=name_suffix, pitch_shift=create_pitch_shifted_versions)
     if use_instrument_model:
         # Instrument model is used for the standard implementation, below is the code to create the
         # instrument timbre model
@@ -447,21 +579,12 @@ if __name__ == '__main__':
         with open(instrument_model_file, 'rb') as modelfile:
             instrument_timbre_detector = pickle.load(modelfile)
 
+    time_grade = taymit()
+    Parallel(n_jobs=1)(delayed(synth_file)(
+        paths_dict, pitch_shift=create_pitch_shifted_versions,
+        instrument_detector=instrument_timbre_detector,
+        th_lc=low_confidence_threshold, th_hc=high_confidence_threshold, voiced_th_ms=min_voiced_th_ms,
+        refine_twm=refine_estimates_with_twm, sawtooth_synth=use_sawtooth_timbre) for paths_dict in paths_list)
 
-
-    for name in sorted(names)[::-1]:
-        time_grade = taymit()
-        print("Started processing grade ", name)
-        process_folder(path_folder_audio=os.path.join(dataset_folder, name),
-                       path_folder_f0=os.path.join(dataset_folder, "pitch_tracks", model, name),
-                       path_folder_synth=os.path.join(dataset_folder, "synthesized" + name_suffix, name),
-                       instrument_detector=instrument_timbre_detector,
-                       pitch_shift=create_pitch_shifted_versions,
-                       th_lc=low_confidence_threshold, th_hc=high_confidence_threshold,
-                       voiced_th_ms=min_voiced_th_ms, refine_twm=refine_estimates_with_twm,
-                       sawtooth_synth=use_sawtooth_timbre, n_jobs=16)
-        synth2tfrecord_folder(path_folder_synth=os.path.join(dataset_folder, "synthesized" + name_suffix, name),
-                              path_folder_tfrecord=os.path.join(dataset_folder, "tfrecord" + name_suffix, name),
-                              n_jobs=16)
-        time_grade = taymit() - time_grade
-        print("Grade {:s} took {:.3f}".format(name, time_grade))
+    time_grade = taymit() - time_grade
+    print("It took {:.3f}".format(time_grade))
