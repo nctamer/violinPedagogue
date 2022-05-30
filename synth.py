@@ -344,7 +344,7 @@ def synth_file(paths, instrument_detector=None, refine_twm=True, pitch_shift=Fal
     time_start = taymit()
     audio = librosa.load(paths['original'], sr=SAMPLING_RATE, mono=True)[0]
     f0s = pd.read_csv(paths['f0'])
-    filename = ' '.join(paths['original'].split('/')[-3:])
+    filename = ' '.join(paths['original'].split('/')[-3:])[:-4]
     f0s["confidence"] = f0s["confidence"].fillna(0)
     pre_anal_coverage = f0s['confidence'] > th_lc
     pre_anal_coverage = sum(pre_anal_coverage) / len(pre_anal_coverage)
