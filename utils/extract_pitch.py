@@ -170,7 +170,7 @@ def ViolinEtudes_extract_pitch_with_model(model_name, main_dataset_folder=os.pat
     audio_files, output_f0_files = [], []
     for p in paths:
         audio_files.append(p['original'])
-        output_f0_files.append('f0')
+        output_f0_files.append(p['f0'])
 
     predict_from_file_list(audio_files, output_f0_files, model_path, viterbi=viterbi, verbose=verbose)
     return
