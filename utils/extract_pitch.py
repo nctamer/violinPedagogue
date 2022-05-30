@@ -177,7 +177,7 @@ def ViolinEtudes_extract_pitch_with_model(model_name, main_dataset_folder=os.pat
 
 
 def gen_paths(main_path, model_name):
-    originals = glob.glob(os.path.join(main_path, 'original', '*', '*', '*.mp3'))
+    originals = sorted(glob.glob(os.path.join(main_path, 'original', '*', '*', '*.mp3')))
     paths = []
     for i, original in enumerate(originals):
         split = original.split('/')
