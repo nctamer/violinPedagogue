@@ -483,7 +483,7 @@ def gen_paths(main_path, modeln, suffix, pitch_shift=False):
 
 if __name__ == '__main__':
 
-    dataset_folder = os.path.join(os.path.expanduser("~"), "ViolinEtudes")
+    dataset_folder = os.path.join(os.path.expanduser("~"), "violindataset", "monoEtudes_ids", "ViolinEtudes")
     model = "finetuned_instrument_model_100_005"
     iteration_if_applicable = 2 # do not use if starting from the original model
     use_instrument_model = True  # only use for the ablation study *standard analysis-synthesis without the instrument model
@@ -580,7 +580,7 @@ if __name__ == '__main__':
             instrument_timbre_detector = pickle.load(modelfile)
 
     time_grade = taymit()
-    Parallel(n_jobs=1)(delayed(synth_file)(
+    Parallel(n_jobs=16)(delayed(synth_file)(
         paths_dict, pitch_shift=create_pitch_shifted_versions,
         instrument_detector=instrument_timbre_detector,
         th_lc=low_confidence_threshold, th_hc=high_confidence_threshold, voiced_th_ms=min_voiced_th_ms,
